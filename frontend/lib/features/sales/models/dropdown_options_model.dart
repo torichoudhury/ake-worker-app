@@ -1,16 +1,18 @@
 // lib/features/sales/models/dropdown_options_model.dart
-// Data models for the dropdown option lists returned by GET /api/items/all
+// Data models for the dropdown option lists and customer list
+
+// ─────────────────────────────────────────────
+// Generic lookup option (id + label) — for items, threads, lengths, heads, colours
+// ─────────────────────────────────────────────
 
 class LookupOption {
-  final int id;
   final String label;
 
-  const LookupOption({required this.id, required this.label});
+  const LookupOption({required this.label});
 
   factory LookupOption.fromJson(Map<String, dynamic> json,
       {String labelKey = 'name'}) {
     return LookupOption(
-      id: json['id'] as int,
       label: json[labelKey] as String,
     );
   }
@@ -23,11 +25,53 @@ class LookupOption {
       identical(this, other) ||
       other is LookupOption &&
           runtimeType == other.runtimeType &&
-          id == other.id;
+          label == other.label;
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => label.hashCode;
 }
+
+// ─────────────────────────────────────────────
+// Customer option — id, name, alias
+// The "alias" is what gets stored as Party in Sale_Transaction
+// ─────────────────────────────────────────────
+
+class CustomerOption {
+  final String alias;       // stored as party in sale_transaction
+  final String vendorName;  // display name (vendor_name column)
+
+  const CustomerOption({
+    required this.alias,
+    required this.vendorName,
+  });
+
+  factory CustomerOption.fromJson(Map<String, dynamic> json) {
+    return CustomerOption(
+      alias:      json['alias'] as String,
+      vendorName: json['vendor_name'] as String? ?? json['alias'] as String,
+    );
+  }
+
+  /// Display label: "ALIAS — Vendor Name"
+  String get displayLabel => '$alias — $vendorName';
+
+  @override
+  String toString() => displayLabel;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CustomerOption &&
+          runtimeType == other.runtimeType &&
+          alias == other.alias;
+
+  @override
+  int get hashCode => alias.hashCode;
+}
+
+// ─────────────────────────────────────────────
+// Dropdown options for item-related fields
+// ─────────────────────────────────────────────
 
 class DropdownOptionsModel {
   final List<LookupOption> items;

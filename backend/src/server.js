@@ -10,6 +10,7 @@ const morgan  = require('morgan');
 
 const itemsRouter        = require('./routes/items');
 const transactionsRouter = require('./routes/transactions');
+const customersRouter    = require('./routes/customers');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 // ─────────────────────────────────────────────
@@ -67,6 +68,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/items',        itemsRouter);
 app.use('/api/transactions', transactionsRouter);
+app.use('/api/customers',    customersRouter);
 
 // ─────────────────────────────────────────────
 // Error handling (must be last)

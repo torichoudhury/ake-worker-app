@@ -39,19 +39,17 @@ class _SalesTransactionView extends StatefulWidget {
 
 class _SalesTransactionViewState extends State<_SalesTransactionView> {
   final _formKey = GlobalKey<FormState>();
-  final _partyController = TextEditingController();
   final _quantityController = TextEditingController();
-  final _rateController = TextEditingController();
+  final _rateController     = TextEditingController();
+  final _receiptController  = TextEditingController();
 
-  // Date is auto-set and read-only
-  final String _today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-  final String _todayDisplay = DateFormat('dd MMM yyyy').format(DateTime.now());
+  // Date is auto-set from device clock (read-only display)
 
   @override
   void dispose() {
-    _partyController.dispose();
     _quantityController.dispose();
     _rateController.dispose();
+    _receiptController.dispose();
     super.dispose();
   }
 
@@ -75,21 +73,21 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
         provider.selectedLength == null ||
         provider.selectedHead == null ||
         provider.selectedColour == null ||
+        provider.selectedParty == null ||
         provider.selectedUom == null ||
-        provider.selectedMode == null) {
+        provider.selectedMode == null ||
+        provider.selectedLocation == null) {
       _showSnackbar(
         context,
-        'Please select all dropdown fields.',
+        'Please select all required dropdown fields.',
         isError: true,
       );
       return;
     }
 
     final success = await provider.submit(
-      date: _today,
-      party: _partyController.text.trim(),
       quantity: _quantityController.text.trim(),
-      rate: _rateController.text.trim(),
+      rate:     _rateController.text.trim(),
     );
 
     if (!mounted) return;
@@ -159,9 +157,9 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
             onPressed: () {
               Navigator.pop(ctx);
               _formKey.currentState!.reset();
-              _partyController.clear();
               _quantityController.clear();
               _rateController.clear();
+              _receiptController.clear();
               provider.resetForm();
             },
             style: ElevatedButton.styleFrom(
@@ -236,7 +234,6 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
             tooltip: 'Reset form',
             onPressed: () {
               _formKey.currentState?.reset();
-              _partyController.clear();
               _quantityController.clear();
               _rateController.clear();
               provider.resetForm();
@@ -278,24 +275,23 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
             icon: Icons.info_outline_rounded,
             accentColor: const Color(0xFF1565C0),
             children: [
-              // Date (read-only)
+              // Date (auto-set from device, read-only)
               AppTextField(
                 label: 'Date',
-                initialValue: _todayDisplay,
+                initialValue: provider.dateDisplay,
                 readOnly: true,
                 prefixIcon: const Icon(Icons.calendar_today_rounded, size: 18),
               ),
               const SizedBox(height: 16),
 
-              // Party
-              AppTextField(
+              // Party — dropdown from Customer_Master
+              AppDropdown<CustomerOption>(
                 label: 'Party',
-                controller: _partyController,
-                hintText: 'Enter party / customer name',
-                prefixIcon: const Icon(Icons.business_rounded, size: 18),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Party is required'
-                    : null,
+                value: provider.selectedParty,
+                items: provider.customers,
+                itemLabel: (c) => c.displayLabel,
+                onChanged: provider.setParty,
+                validator: (v) => v == null ? 'Please select a party' : null,
               ),
             ],
           ),
@@ -447,6 +443,16 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
               ),
               const SizedBox(height: 14),
 
+              // Receipt (optional)
+              AppTextField(
+                label: 'Receipt',
+                controller: _receiptController,
+                hintText: 'Receipt no. / reference (optional)',
+                prefixIcon: const Icon(Icons.receipt_long_rounded, size: 18),
+                onChanged: provider.setReceipt,
+              ),
+              const SizedBox(height: 14),
+
               // Amount (auto-calculated, read-only)
               _AmountDisplay(amount: provider.amount),
             ],
@@ -454,32 +460,20 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
 
           const SizedBox(height: 16),
 
-          // ── 4. Footer / Extra ───────────────────
+          // ── 4. Additional Info ───────────────────
           SectionCard(
             title: 'ADDITIONAL INFO',
             icon: Icons.location_on_rounded,
             accentColor: Colors.grey.shade600,
             children: [
-              // Location — disabled placeholder
-              AppTextField(
+              // Location — dropdown
+              AppDropdown<String>(
                 label: 'Location',
-                initialValue: '',
-                hintText: 'Coming Soon',
-                enabled: false,
-                prefixIcon: Icon(Icons.lock_outline_rounded,
-                    size: 18, color: Colors.grey.shade400),
-                suffixIcon: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Chip(
-                    label: Text(
-                      'Coming Soon',
-                      style: GoogleFonts.inter(
-                          fontSize: 10, fontWeight: FontWeight.w600),
-                    ),
-                    padding: EdgeInsets.zero,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
+                value: provider.selectedLocation,
+                items: AppConstants.locationOptions,
+                itemLabel: (s) => s,
+                onChanged: provider.setLocation,
+                validator: (v) => v == null ? 'Please select a location' : null,
               ),
             ],
           ),

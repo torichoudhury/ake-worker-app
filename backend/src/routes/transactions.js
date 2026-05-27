@@ -1,43 +1,39 @@
 // src/routes/transactions.js
-// POST /api/transactions  — create a sales transaction
-// GET  /api/transactions  — list transactions (with pagination)
+// POST /api/transactions  — create a sale transaction
+// GET  /api/transactions  — list transactions (paginated)
+// GET  /api/transactions/:id — get single transaction
 
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 const { body, query, validationResult } = require('express-validator');
-const supabase = require('../config/supabase');
+const db = require('../config/db');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 // ─────────────────────────────────────────────
-// Validation rules
+// Constants
 // ─────────────────────────────────────────────
 
 const VALID_UOM  = ['5', 'Gross', 'KH', 'Pcs', 'Box'];
 const VALID_MODE = ['cash', 'online', 'credit-slip', 'gst-cash', 'gst-bank', 'gst-credit'];
 
+// ─────────────────────────────────────────────
+// Validation rules
+// ─────────────────────────────────────────────
+
 const transactionValidationRules = [
-  body('date')
-    .isISO8601().withMessage('date must be a valid ISO date (YYYY-MM-DD)'),
-  body('party')
-    .trim().notEmpty().withMessage('party is required'),
-  body('item_id')
-    .isInt({ min: 1 }).withMessage('item_id must be a positive integer'),
-  body('thread_id')
-    .isInt({ min: 1 }).withMessage('thread_id must be a positive integer'),
-  body('length_id')
-    .isInt({ min: 1 }).withMessage('length_id must be a positive integer'),
-  body('head_id')
-    .isInt({ min: 1 }).withMessage('head_id must be a positive integer'),
-  body('colour_id')
-    .isInt({ min: 1 }).withMessage('colour_id must be a positive integer'),
-  body('quantity')
-    .isInt({ min: 1 }).withMessage('quantity must be a positive integer'),
-  body('uom')
-    .isIn(VALID_UOM).withMessage(`uom must be one of: ${VALID_UOM.join(', ')}`),
-  body('rate')
-    .isFloat({ min: 0 }).withMessage('rate must be a non-negative number'),
-  body('mode')
-    .isIn(VALID_MODE).withMessage(`mode must be one of: ${VALID_MODE.join(', ')}`),
+  body('item_name').trim().notEmpty().withMessage('item_name is required'),
+  body('thread').trim().notEmpty().withMessage('thread is required'),
+  body('length').trim().notEmpty().withMessage('length is required'),
+  body('head').trim().notEmpty().withMessage('head is required'),
+  body('colour').trim().notEmpty().withMessage('colour is required'),
+  body('party').trim().notEmpty().withMessage('party (customer alias) is required'),
+  body('date').trim().notEmpty().withMessage('date is required'),
+  body('quantity').isFloat({ min: 0.01 }).withMessage('quantity must be a positive number'),
+  body('uom').isIn(VALID_UOM).withMessage(`uom must be one of: ${VALID_UOM.join(', ')}`),
+  body('rate').isFloat({ min: 0 }).withMessage('rate must be a non-negative number'),
+  body('mode').isIn(VALID_MODE).withMessage(`mode must be one of: ${VALID_MODE.join(', ')}`),
+  body('receipt').optional({ nullable: true }).trim(),
+  body('location').optional({ nullable: true }).trim(),
 ];
 
 // ─────────────────────────────────────────────
@@ -48,7 +44,7 @@ router.post(
   '/',
   transactionValidationRules,
   asyncHandler(async (req, res) => {
-    // 1. Check validation errors
+    // 1. Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(422).json({
@@ -59,37 +55,46 @@ router.post(
     }
 
     const {
-      date, party,
-      item_id, thread_id, length_id, head_id, colour_id,
+      item_name, thread, length, head, colour,
+      party, date,
       quantity, uom, rate, mode,
+      receipt = null,
+      location = null,
     } = req.body;
 
-    // 2. Insert into Supabase (amount is a generated column — do not pass it)
-    const { data, error } = await supabase
-      .from('sales_transactions')
-      .insert([{
-        date,
-        party,
-        item_id,
-        thread_id,
-        length_id,
-        head_id,
-        colour_id,
-        quantity,
-        uom,
-        rate,
-        mode,
-      }])
-      .select()
-      .single();
+    // 2. Resolve item_id from item_master using the 5-field combination
+    //    Real column name is "name" (not "item_name")
+    const itemLookup = await db.query(
+      `SELECT id FROM item_master
+       WHERE name = $1 AND thread = $2 AND length = $3 AND head = $4 AND colour = $5
+       LIMIT 1`,
+      [item_name, thread, length, head, colour]
+    );
 
-    if (error) {
-      const err = new Error(`Failed to save transaction: ${error.message}`);
-      err.status = 502;
-      throw err;
+    if (itemLookup.rowCount === 0) {
+      return res.status(422).json({
+        success: false,
+        error: 'No matching item found for the selected combination (item, thread, length, head, colour).',
+      });
     }
 
-    res.status(201).json({ success: true, data });
+    const itemId = itemLookup.rows[0].id;
+
+    // 3. Compute amount = rate × quantity
+    const qty     = parseFloat(quantity);
+    const rateVal = parseFloat(rate);
+    const amount  = parseFloat((qty * rateVal).toFixed(2));
+
+    // 4. Insert into sale_transaction (all lowercase column names)
+    const insertResult = await db.query(
+      `INSERT INTO sale_transaction
+         (date, party, item_id, quantity, uom, rate, mode, amount, reciept, location)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [date, party, itemId, qty, uom, rateVal, mode, amount, receipt, location]
+    );
+
+    res.status(201).json({ success: true, data: insertResult.rows[0] });
   })
 );
 
@@ -104,35 +109,35 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
   ],
   asyncHandler(async (req, res) => {
-    const page  = req.query.page  || 1;
-    const limit = req.query.limit || 20;
-    const from  = (page - 1) * limit;
-    const to    = from + limit - 1;
+    const page   = req.query.page  || 1;
+    const limit  = req.query.limit || 20;
+    const offset = (page - 1) * limit;
 
-    const { data, error, count } = await supabase
-      .from('sales_transactions')
-      .select(
-        `id, date, party, quantity, uom, rate, amount, mode, created_at,
-         items(name), threads(name), lengths(value), heads(name), colours(name)`,
-        { count: 'exact' }
-      )
-      .order('created_at', { ascending: false })
-      .range(from, to);
+    const [dataResult, countResult] = await Promise.all([
+      db.query(
+        `SELECT
+           st.id, st.date, st.party, st.item_id, st.quantity,
+           st.uom, st.rate, st.mode, st.amount, st.reciept, st.location,
+           im.name AS item_name, im.thread, im.length, im.head, im.colour
+         FROM sale_transaction st
+         LEFT JOIN item_master im ON st.item_id = im.id
+         ORDER BY st.id DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      ),
+      db.query('SELECT COUNT(*) FROM sale_transaction'),
+    ]);
 
-    if (error) {
-      const err = new Error(`Failed to fetch transactions: ${error.message}`);
-      err.status = 502;
-      throw err;
-    }
+    const total = parseInt(countResult.rows[0].count, 10);
 
     res.json({
       success: true,
-      data,
+      data: dataResult.rows,
       meta: {
-        total: count,
+        total,
         page,
         limit,
-        totalPages: Math.ceil(count / limit),
+        totalPages: Math.ceil(total / limit),
       },
     });
   })
@@ -145,19 +150,20 @@ router.get(
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    const { data, error } = await supabase
-      .from('sales_transactions')
-      .select(
-        `*, items(name), threads(name), lengths(value), heads(name), colours(name)`
-      )
-      .eq('id', req.params.id)
-      .single();
+    const result = await db.query(
+      `SELECT
+         st.*, im.name AS item_name, im.thread, im.length, im.head, im.colour
+       FROM sale_transaction st
+       LEFT JOIN item_master im ON st.item_id = im.id
+       WHERE st.id = $1`,
+      [req.params.id]
+    );
 
-    if (error || !data) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ success: false, error: 'Transaction not found' });
     }
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: result.rows[0] });
   })
 );
 

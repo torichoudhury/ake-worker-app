@@ -8,10 +8,11 @@ class AppConstants {
   // For Android emulator: 10.0.2.2 maps to host machine's localhost
   // For iOS simulator:    127.0.0.1
   // For physical device:  your machine's LAN IP, e.g. 192.168.1.10
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  // Note: Using 127.0.0.1 because ADB reverse proxy is active for the physical device
+  static const String baseUrl = 'http://127.0.0.1:3000/api';
 
   // Set to TRUE for UI testing without a running backend
-  static const bool useMockData = true;
+  // Mock mode removed — app always calls the real backend
 
   static const Duration connectTimeout = Duration(seconds: 10);
 
@@ -26,5 +27,12 @@ class AppConstants {
     'gst-cash',
     'gst-bank',
     'gst-credit',
+  ];
+
+  // ─── Location Options ───────────────────────
+  static const List<String> locationOptions = [
+    'Home Godown',
+    'Ake',
+    'Radhe',
   ];
 }

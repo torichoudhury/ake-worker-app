@@ -80,66 +80,28 @@ class ApiService {
   // Public API methods
   // ─────────────────────────────────────────────
 
-  /// Fetches all dropdown option lists in a single request.
+  /// Fetches all dropdown option lists (items, threads, lengths, heads, colours).
   Future<DropdownOptionsModel> fetchDropdownOptions() async {
-    if (AppConstants.useMockData) {
-      // Simulate network delay
-      await Future.delayed(const Duration(milliseconds: 150));
-      return const DropdownOptionsModel(
-        items: [
-          LookupOption(id: 1, label: 'Screw M4'),
-          LookupOption(id: 2, label: 'Screw M6'),
-          LookupOption(id: 3, label: 'Bolt M8'),
-          LookupOption(id: 4, label: 'Nut M4'),
-          LookupOption(id: 5, label: 'Washer'),
-        ],
-        threads: [
-          LookupOption(id: 1, label: 'Metric'),
-          LookupOption(id: 2, label: 'Imperial'),
-          LookupOption(id: 3, label: 'UNC'),
-          LookupOption(id: 4, label: 'UNF'),
-          LookupOption(id: 5, label: 'BSW'),
-        ],
-        lengths: [
-          LookupOption(id: 1, label: '10mm'),
-          LookupOption(id: 2, label: '20mm'),
-          LookupOption(id: 3, label: '30mm'),
-          LookupOption(id: 4, label: '50mm'),
-          LookupOption(id: 5, label: '100mm'),
-        ],
-        heads: [
-          LookupOption(id: 1, label: 'Phillips'),
-          LookupOption(id: 2, label: 'Flat'),
-          LookupOption(id: 3, label: 'Hex'),
-          LookupOption(id: 4, label: 'Counter-sink'),
-        ],
-        colours: [
-          LookupOption(id: 1, label: 'Zinc'),
-          LookupOption(id: 2, label: 'Black Oxide'),
-          LookupOption(id: 3, label: 'Steel'),
-          LookupOption(id: 4, label: 'Brass'),
-        ],
-      );
-    }
-
     final response = await _get('/items/all');
     return DropdownOptionsModel.fromJson(
         response['data'] as Map<String, dynamic>);
   }
 
+  /// Fetches the customer list from Customer_Master.
+  /// Returns [{ id, name, alias }] — alias is used as the Party value.
+  Future<List<CustomerOption>> fetchCustomers() async {
+    final response = await _get('/customers');
+    final list = response['data'] as List<dynamic>;
+    return list
+        .map((e) => CustomerOption.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Posts a new sales transaction to the backend.
+  /// Payload: { item_name, thread, length, head, colour,
+  ///            party, date, quantity, uom, rate, mode, receipt?, location? }
   Future<Map<String, dynamic>> createTransaction(
       Map<String, dynamic> payload) async {
-    if (AppConstants.useMockData) {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
-      return {
-        'id': 123,
-        'status': 'success',
-        'message': 'Mock transaction created successfully'
-      };
-    }
-
     final response = await _post('/transactions', payload);
     return response['data'] as Map<String, dynamic>;
   }
