@@ -36,7 +36,7 @@ class AppDropdown<T> extends StatelessWidget {
         hint ?? 'Select $label',
         style: GoogleFonts.inter(
           color: Colors.grey.shade400,
-          fontSize: 14,
+          fontSize: 16,
         ),
       ),
       decoration: InputDecoration(
@@ -48,7 +48,7 @@ class AppDropdown<T> extends StatelessWidget {
           value: item,
           child: Text(
             itemLabel(item),
-            style: GoogleFonts.inter(fontSize: 14),
+            style: GoogleFonts.inter(fontSize: 16),
             overflow: TextOverflow.ellipsis,
           ),
         );

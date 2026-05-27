@@ -47,7 +47,7 @@ class AppTextField extends StatelessWidget {
       readOnly: readOnly,
       enabled: enabled,
       maxLines: maxLines,
-      style: GoogleFonts.inter(fontSize: 14),
+      style: GoogleFonts.inter(fontSize: 16),
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
@@ -61,7 +61,7 @@ class AppTextField extends StatelessWidget {
           color: (!enabled || readOnly)
               ? Colors.grey.shade400
               : Colors.grey.shade600,
-          fontSize: 14,
+          fontSize: 16,
         ),
       ),
       validator: validator,

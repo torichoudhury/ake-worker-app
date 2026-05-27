@@ -15,12 +15,21 @@ const { asyncHandler } = require('../middleware/errorHandler');
 router.get(
   '/all',
   asyncHandler(async (req, res) => {
+    const name = req.query.name;
+    let whereClause = '';
+    let params = [];
+
+    if (name) {
+      whereClause = 'AND name = $1';
+      params = [name];
+    }
+
     const [items, threads, lengths, heads, colours] = await Promise.all([
       db.query('SELECT DISTINCT name FROM item_master WHERE name IS NOT NULL ORDER BY name ASC'),
-      db.query('SELECT DISTINCT thread AS name FROM item_master WHERE thread IS NOT NULL ORDER BY thread ASC'),
-      db.query('SELECT DISTINCT length AS value FROM item_master WHERE length IS NOT NULL ORDER BY length ASC'),
-      db.query('SELECT DISTINCT head AS name FROM item_master WHERE head IS NOT NULL ORDER BY head ASC'),
-      db.query('SELECT DISTINCT colour AS name FROM item_master WHERE colour IS NOT NULL ORDER BY colour ASC'),
+      db.query(`SELECT DISTINCT thread AS name FROM item_master WHERE thread IS NOT NULL ${whereClause} ORDER BY thread ASC`, params),
+      db.query(`SELECT DISTINCT length AS value FROM item_master WHERE length IS NOT NULL ${whereClause} ORDER BY length ASC`, params),
+      db.query(`SELECT DISTINCT head AS name FROM item_master WHERE head IS NOT NULL ${whereClause} ORDER BY head ASC`, params),
+      db.query(`SELECT DISTINCT colour AS name FROM item_master WHERE colour IS NOT NULL ${whereClause} ORDER BY colour ASC`, params),
     ]);
 
     res.json({

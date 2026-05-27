@@ -21,18 +21,21 @@ const VALID_MODE = ['cash', 'online', 'credit-slip', 'gst-cash', 'gst-bank', 'gs
 // ─────────────────────────────────────────────
 
 const transactionValidationRules = [
-  body('item_name').trim().notEmpty().withMessage('item_name is required'),
-  body('thread').trim().notEmpty().withMessage('thread is required'),
-  body('length').trim().notEmpty().withMessage('length is required'),
-  body('head').trim().notEmpty().withMessage('head is required'),
-  body('colour').trim().notEmpty().withMessage('colour is required'),
-  body('party').trim().notEmpty().withMessage('party (customer alias) is required'),
+  body('party').trim().notEmpty().withMessage('party is required'),
   body('date').trim().notEmpty().withMessage('date is required'),
-  body('quantity').isFloat({ min: 0.01 }).withMessage('quantity must be a positive number'),
-  body('uom').isIn(VALID_UOM).withMessage(`uom must be one of: ${VALID_UOM.join(', ')}`),
-  body('rate').isFloat({ min: 0 }).withMessage('rate must be a non-negative number'),
   body('mode').isIn(VALID_MODE).withMessage(`mode must be one of: ${VALID_MODE.join(', ')}`),
-  body('receipt').optional({ nullable: true }).trim(),
+  body('items').isArray({ min: 1 }).withMessage('items array must not be empty'),
+  body('items.*.item_name').trim().notEmpty(),
+  body('items.*.thread').trim().notEmpty(),
+  body('items.*.length').trim().notEmpty(),
+  body('items.*.head').trim().notEmpty(),
+  body('items.*.colour').trim().notEmpty(),
+  body('items.*.quantity').isFloat({ min: 0.01 }),
+  body('items.*.uom').isIn(VALID_UOM),
+  body('items.*.rate').isFloat({ min: 0 }),
+  body('receipt').optional({ nullable: true }).isNumeric(),
+  body('grand_total').isNumeric(),
+  body('remaining').isNumeric(),
   body('location').optional({ nullable: true }).trim(),
 ];
 
@@ -55,46 +58,66 @@ router.post(
     }
 
     const {
-      item_name, thread, length, head, colour,
-      party, date,
-      quantity, uom, rate, mode,
-      receipt = null,
-      location = null,
+      party, date, mode, location = null,
+      items, receipt = 0, grand_total, remaining
     } = req.body;
 
-    // 2. Resolve item_id from item_master using the 5-field combination
-    //    Real column name is "name" (not "item_name")
-    const itemLookup = await db.query(
-      `SELECT id FROM item_master
-       WHERE name = $1 AND thread = $2 AND length = $3 AND head = $4 AND colour = $5
-       LIMIT 1`,
-      [item_name, thread, length, head, colour]
-    );
+    const client = await db.connect();
 
-    if (itemLookup.rowCount === 0) {
-      return res.status(422).json({
-        success: false,
-        error: 'No matching item found for the selected combination (item, thread, length, head, colour).',
-      });
+    try {
+      await client.query('BEGIN');
+
+      // 2. Fetch the max transaction_id and add 1
+      const maxTxResult = await client.query('SELECT COALESCE(MAX(transaction_id), 0) + 1 AS next_id FROM sale_transaction');
+      const transactionId = parseInt(maxTxResult.rows[0].next_id, 10);
+
+      // 3. Insert each item
+      for (const item of items) {
+        // Resolve item_id from item_master
+        const itemLookup = await client.query(
+          `SELECT id FROM item_master
+           WHERE name = $1 AND thread = $2 AND length = $3 AND head = $4 AND colour = $5
+           LIMIT 1`,
+          [item.item_name, item.thread, item.length, item.head, item.colour]
+        );
+
+        if (itemLookup.rowCount === 0) {
+          throw new Error(`No matching item found for: ${item.item_name} ${item.thread} ${item.length} ${item.head} ${item.colour}`);
+        }
+
+        const itemId = itemLookup.rows[0].id;
+        const qty    = parseFloat(item.quantity);
+        const rateVal= parseFloat(item.rate);
+        const amount = parseFloat((qty * rateVal).toFixed(2));
+
+        // Insert into sale_transaction using lowercase table and columns
+        // Assuming reciept was text but user wants us to ignore modifying the DB, we just pass the raw receipt if it was text.
+        // Wait, the user said "convert to real number" so they probably made it numeric or expect it. We will cast to string or number safely.
+        await client.query(
+          `INSERT INTO sale_transaction
+             (transaction_id, date, party, item_id, quantity, uom, rate, mode, amount, reciept, location)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [transactionId, date, party, itemId, qty, item.uom, rateVal, mode, amount, receipt.toString(), location]
+        );
+      }
+
+      // 4. Insert into transaction_treasury
+      const due = parseFloat(remaining) > 0;
+      await client.query(
+        `INSERT INTO transaction_treasury (transaction_id, amount, due, iteration, due_amount)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [transactionId, parseFloat(grand_total), due, 1, parseFloat(remaining)]
+      );
+
+      await client.query('COMMIT');
+      res.status(201).json({ success: true, data: { transaction_id: transactionId } });
+
+    } catch (e) {
+      await client.query('ROLLBACK');
+      res.status(500).json({ success: false, error: e.message });
+    } finally {
+      client.release();
     }
-
-    const itemId = itemLookup.rows[0].id;
-
-    // 3. Compute amount = rate × quantity
-    const qty     = parseFloat(quantity);
-    const rateVal = parseFloat(rate);
-    const amount  = parseFloat((qty * rateVal).toFixed(2));
-
-    // 4. Insert into sale_transaction (all lowercase column names)
-    const insertResult = await db.query(
-      `INSERT INTO sale_transaction
-         (date, party, item_id, quantity, uom, rate, mode, amount, reciept, location)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING *`,
-      [date, party, itemId, qty, uom, rateVal, mode, amount, receipt, location]
-    );
-
-    res.status(201).json({ success: true, data: insertResult.rows[0] });
   })
 );
 

@@ -1,111 +1,178 @@
-// lib/features/sales/providers/sales_form_provider.dart
-// State management for the Sales Transaction form using ChangeNotifier
-
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../../core/services/api_service.dart';
 import '../models/dropdown_options_model.dart';
+import '../models/cart_item_model.dart';
 
 enum FormLoadState { idle, loading, loaded, error }
 
-enum SubmitState { idle, submitting, success, error }
-
 class SalesFormProvider extends ChangeNotifier {
-  // ─── Item dropdown data ──────────────────────
-  DropdownOptionsModel _options = DropdownOptionsModel.empty();
   FormLoadState _loadState = FormLoadState.idle;
   String _loadError = '';
 
-  // ─── Customer list ──────────────────────────
+  FormLoadState get loadState => _loadState;
+  String get loadError => _loadError;
+
+  // ─────────────────────────────────────────────
+  // Data
+  // ─────────────────────────────────────────────
+  DropdownOptionsModel _options = DropdownOptionsModel.empty();
   List<CustomerOption> _customers = [];
 
-  // ─── Item selections (combo → resolves Item_Id) ─
+  List<LookupOption> get items => _options.items;
+  List<LookupOption> get threads => _options.threads;
+  List<LookupOption> get lengths => _options.lengths;
+  List<LookupOption> get heads => _options.heads;
+  List<LookupOption> get colours => _options.colours;
+  List<CustomerOption> get customers => _customers;
+
+  // ─────────────────────────────────────────────
+  // Selection State (General Info & Item Form)
+  // ─────────────────────────────────────────────
+  
+  // General Info
+  String? _selectedLocation;
+  CustomerOption? _selectedParty;
+  String _selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  int? _lastTransactionId;
+
+  // Current Item Form
   LookupOption? _selectedItem;
   LookupOption? _selectedThread;
   LookupOption? _selectedLength;
   LookupOption? _selectedHead;
   LookupOption? _selectedColour;
-
-  // ─── Party selection ─────────────────────────
-  CustomerOption? _selectedParty;
-
-  // ─── Transaction fields ──────────────────────
   String? _selectedUom;
   String? _selectedMode;
-  String? _selectedLocation;
-  String? _receipt;
 
-  // ─── Computed amount ─────────────────────────
-  double _quantity = 0;
-  double _rate     = 0;
+  // ─────────────────────────────────────────────
+  // Cart & Transaction State
+  // ─────────────────────────────────────────────
+  final List<CartItem> _cart = [];
+  double _gst = 0.0;
+  double _cartage = 0.0;
+  double _receipt = 0.0;
 
-  // ─── Date — auto-set from device clock ──────
-  /// Stored as "dd MMM yyyy" for display; sent as "yyyy-MM-dd" to backend
-  final String _dateDisplay =
-      DateFormat('dd MMM yyyy').format(DateTime.now());
-  final String _dateForBackend =
-      DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-  // ─── Submit state ────────────────────────────
-  SubmitState _submitState = SubmitState.idle;
+  bool _isSubmitting = false;
   String _submitError = '';
 
-  // ─────────────────────────────────────────────
   // Getters
-  // ─────────────────────────────────────────────
+  String? get selectedLocation => _selectedLocation;
+  CustomerOption? get selectedParty => _selectedParty;
+  String get selectedDate => _selectedDate;
+  int? get lastTransactionId => _lastTransactionId;
 
-  DropdownOptionsModel get options    => _options;
-  FormLoadState get loadState         => _loadState;
-  String get loadError                => _loadError;
-  SubmitState get submitState         => _submitState;
-  String get submitError              => _submitError;
+  LookupOption? get selectedItem => _selectedItem;
+  LookupOption? get selectedThread => _selectedThread;
+  LookupOption? get selectedLength => _selectedLength;
+  LookupOption? get selectedHead => _selectedHead;
+  LookupOption? get selectedColour => _selectedColour;
+  String? get selectedUom => _selectedUom;
+  String? get selectedMode => _selectedMode;
 
-  List<CustomerOption> get customers  => _customers;
+  List<CartItem> get cart => _cart;
+  double get gst => _gst;
+  double get cartage => _cartage;
+  double get receipt => _receipt;
 
-  LookupOption? get selectedItem      => _selectedItem;
-  LookupOption? get selectedThread    => _selectedThread;
-  LookupOption? get selectedLength    => _selectedLength;
-  LookupOption? get selectedHead      => _selectedHead;
-  LookupOption? get selectedColour    => _selectedColour;
-  CustomerOption? get selectedParty   => _selectedParty;
-  String? get selectedUom             => _selectedUom;
-  String? get selectedMode            => _selectedMode;
-  String? get selectedLocation        => _selectedLocation;
-  String? get receipt                 => _receipt;
+  bool get isSubmitting => _isSubmitting;
+  String get submitError => _submitError;
 
-  /// Date shown in the read-only field (e.g. "27 May 2026")
-  String get dateDisplay              => _dateDisplay;
+  // Computed Totals
+  double get totalItemsAmount => _cart.fold(0.0, (sum, item) => sum + item.amount);
+  double get gstAmount => totalItemsAmount * (_gst / 100);
+  double get grandTotal => totalItemsAmount + gstAmount + _cartage;
+  double get remaining => grandTotal - _receipt;
 
-  /// Amount auto-calculated from quantity × rate
-  double get amount => _quantity * _rate;
-
-  // ─────────────────────────────────────────────
   // Setters
-  // ─────────────────────────────────────────────
+  void setLocation(String? v) { _selectedLocation = v; notifyListeners(); }
+  void setParty(CustomerOption? v) { _selectedParty = v; notifyListeners(); }
+  void setDate(String v) { _selectedDate = v; notifyListeners(); }
 
-  void setItem(LookupOption? v)      { _selectedItem   = v; notifyListeners(); }
-  void setThread(LookupOption? v)    { _selectedThread  = v; notifyListeners(); }
-  void setLength(LookupOption? v)    { _selectedLength  = v; notifyListeners(); }
-  void setHead(LookupOption? v)      { _selectedHead    = v; notifyListeners(); }
-  void setColour(LookupOption? v)    { _selectedColour  = v; notifyListeners(); }
-  void setParty(CustomerOption? v)   { _selectedParty   = v; notifyListeners(); }
-  void setUom(String? v)             { _selectedUom      = v; notifyListeners(); }
-  void setMode(String? v)            { _selectedMode     = v; notifyListeners(); }
-  void setLocation(String? v)        { _selectedLocation = v; notifyListeners(); }
-  void setReceipt(String v)          { _receipt = v.trim().isEmpty ? null : v.trim(); notifyListeners(); }
+  void setItem(LookupOption? v) {
+    _selectedItem = v;
+    _selectedThread = null;
+    _selectedLength = null;
+    _selectedHead = null;
+    _selectedColour = null;
+    notifyListeners();
 
-  void setQuantity(String v) {
-    _quantity = double.tryParse(v) ?? 0;
+    _fetchFilteredOptions(v?.label);
+  }
+
+  Future<void> _fetchFilteredOptions(String? itemName) async {
+    try {
+      final newOptions = await ApiService.instance.fetchDropdownOptions(itemName: itemName);
+      _options = _options.copyWith(
+        threads: newOptions.threads,
+        lengths: newOptions.lengths,
+        heads: newOptions.heads,
+        colours: newOptions.colours,
+      );
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to fetch filtered options: $e');
+    }
+  }
+  void setThread(LookupOption? v) { _selectedThread = v; notifyListeners(); }
+  void setLength(LookupOption? v) { _selectedLength = v; notifyListeners(); }
+  void setHead(LookupOption? v) { _selectedHead = v; notifyListeners(); }
+  void setColour(LookupOption? v) { _selectedColour = v; notifyListeners(); }
+  void setUom(String? v) { _selectedUom = v; notifyListeners(); }
+  void setMode(String? v) { _selectedMode = v; notifyListeners(); }
+
+  void setGst(String text) {
+    _gst = double.tryParse(text) ?? 0.0;
     notifyListeners();
   }
 
-  void setRate(String v) {
-    _rate = double.tryParse(v) ?? 0;
+  void setCartage(String text) {
+    _cartage = double.tryParse(text) ?? 0.0;
+    notifyListeners();
+  }
+
+  void setReceipt(String text) {
+    _receipt = double.tryParse(text) ?? 0.0;
     notifyListeners();
   }
 
   // ─────────────────────────────────────────────
-  // Load dropdown options + customer list from API
+  // Cart Methods
+  // ─────────────────────────────────────────────
+  void addToCart(double quantity, double rate) {
+    if (_selectedItem == null || _selectedThread == null || _selectedLength == null ||
+        _selectedHead == null || _selectedColour == null || _selectedUom == null) {
+      return;
+    }
+
+    _cart.add(CartItem(
+      item: _selectedItem!,
+      thread: _selectedThread!,
+      length: _selectedLength!,
+      head: _selectedHead!,
+      colour: _selectedColour!,
+      quantity: quantity,
+      uom: _selectedUom!,
+      rate: rate,
+    ));
+
+    // Reset item form fields (keep UoM as it might be reused)
+    _selectedItem = null;
+    _selectedThread = null;
+    _selectedLength = null;
+    _selectedHead = null;
+    _selectedColour = null;
+    notifyListeners();
+  }
+
+  void removeFromCart(int index) {
+    _cart.removeAt(index);
+    notifyListeners();
+  }
+
+  // ─────────────────────────────────────────────
+  // Load data
   // ─────────────────────────────────────────────
 
   Future<void> loadOptions() async {
@@ -116,7 +183,6 @@ class SalesFormProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Fetch item dropdowns and customer list in parallel
       final results = await Future.wait([
         ApiService.instance.fetchDropdownOptions(),
         ApiService.instance.fetchCustomers(),
@@ -140,76 +206,72 @@ class SalesFormProvider extends ChangeNotifier {
   // Submit transaction
   // ─────────────────────────────────────────────
 
-  Future<bool> submit({
-    required String quantity,
-    required String rate,
-  }) async {
-    _submitState = SubmitState.submitting;
+  Future<bool> submit() async {
+    if (_cart.isEmpty) {
+      _submitError = 'Cart is empty.';
+      return false;
+    }
+    if (_selectedLocation == null || _selectedParty == null || _selectedMode == null) {
+      _submitError = 'Missing general transaction info (Location, Party, or Mode).';
+      return false;
+    }
+
+    _isSubmitting = true;
     _submitError = '';
     notifyListeners();
 
     try {
-      await ApiService.instance.createTransaction({
-        // Item combination — backend resolves Item_Id from Item_Master
-        'item_name': _selectedItem!.label,
-        'thread':    _selectedThread!.label,
-        'length':    _selectedLength!.label,
-        'head':      _selectedHead!.label,
-        'colour':    _selectedColour!.label,
-
-        // Party: the alias value stored in Sale_Transaction.Party
+      final payload = {
         'party': _selectedParty!.alias,
-
-        // Date: set on the device (system date)
-        'date': _dateForBackend,
-
-        // Transaction fields
-        'quantity': double.parse(quantity),
-        'uom':      _selectedUom,
-        'rate':     double.parse(rate),
-        'mode':     _selectedMode,
-        'amount':   double.parse(quantity) * double.parse(rate),
-
-        // Optional
-        'receipt':  _receipt,
+        'date': _selectedDate,
+        'mode': _selectedMode,
         'location': _selectedLocation,
-      });
+        'receipt': _receipt,
+        'grand_total': grandTotal,
+        'remaining': remaining,
+        'items': _cart.map((cartItem) => {
+          'item_name': cartItem.item.label,
+          'thread':    cartItem.thread.label,
+          'length':    cartItem.length.label,
+          'head':      cartItem.head.label,
+          'colour':    cartItem.colour.label,
+          'quantity':  cartItem.quantity,
+          'uom':       cartItem.uom,
+          'rate':      cartItem.rate,
+        }).toList(),
+      };
 
-      _submitState = SubmitState.success;
-      notifyListeners();
+      final responseData = await ApiService.instance.createTransaction(payload);
+      _lastTransactionId = responseData['transaction_id'] as int?;
       return true;
     } on ApiException catch (e) {
-      _submitState = SubmitState.error;
       _submitError = e.message;
-      notifyListeners();
       return false;
     } catch (e) {
-      _submitState = SubmitState.error;
-      _submitError = 'Unexpected error: $e';
-      notifyListeners();
+      _submitError = 'An unexpected error occurred.';
       return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Reset form
-  // ─────────────────────────────────────────────
-
   void resetForm() {
-    _selectedItem    = null;
-    _selectedThread  = null;
-    _selectedLength  = null;
-    _selectedHead    = null;
-    _selectedColour  = null;
-    _selectedParty   = null;
-    _selectedUom     = null;
-    _selectedMode    = null;
     _selectedLocation = null;
-    _receipt         = null;
-    _quantity        = 0;
-    _rate            = 0;
-    _submitState     = SubmitState.idle;
-    _submitError     = '';
+    _selectedParty = null;
+    _selectedItem = null;
+    _selectedThread = null;
+    _selectedLength = null;
+    _selectedHead = null;
+    _selectedColour = null;
+    _selectedUom = null;
+    _selectedMode = null;
+    _cart.clear();
+    _gst = 0.0;
+    _cartage = 0.0;
+    _receipt = 0.0;
+    _submitError = '';
+    _selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
     notifyListeners();
   }
 }

@@ -15,90 +15,29 @@ class DashboardScreen extends StatelessWidget {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // ── Fancy SliverAppBar ──────────────────
+          // ── Simple SliverAppBar ──────────────────
           SliverAppBar(
-            expandedHeight: 200,
             pinned: true,
-            stretch: true,
-            flexibleSpace: FlexibleSpaceBar(
-              stretchModes: const [StretchMode.zoomBackground],
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF0D47A1),
-                      Color(0xFF1565C0),
-                      Color(0xFF0288D1),
-                    ],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                Icons.inventory_2_rounded,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'AKE Worker',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Text(
-                                  'Inventory Management',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white70,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Good ${_greeting()}, Manager 👋',
-                          style: GoogleFonts.inter(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+            flexibleSpace: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF0D47A1),
+                    Color(0xFF1565C0),
+                    Color(0xFF0288D1),
+                  ],
                 ),
               ),
-              title: Text(
-                'Dashboard',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
+            ),
+            title: Text(
+              'Dashboard',
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
               ),
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
             ),
           ),
 
@@ -107,28 +46,17 @@ class DashboardScreen extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Section label
-                Text(
-                  'Quick Actions',
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A2340),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
                 // Navigation cards grid
                 _NavCard(
-                  title: 'Sales Transaction',
-                  subtitle: 'Record a new sale, select items\nand enter transaction details',
+                  title: 'New Bill',
                   icon: Icons.receipt_long_rounded,
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [Color(0xFF1565C0), Color(0xFF0288D1)],
                   ),
-                  badgeText: 'Active',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -136,19 +64,35 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
+
+                _NavCard(
+                  title: 'Due Bill Receipt',
+                  icon: Icons.payments_rounded,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFE65100), Color(0xFFFF9800)],
+                  ),
+                  badgeText: 'Coming Soon',
+                  badgeColor: Colors.deepOrange.shade900,
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Coming Soon!')),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
 
                 _NavCard(
                   title: 'Movement',
-                  subtitle: 'Track stock movement\nbetween locations',
                   icon: Icons.swap_horiz_rounded,
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
                   ),
-                  badgeText: 'Coming Soon',
-                  badgeColor: Colors.orange.shade700,
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const MovementScreen()),
@@ -156,9 +100,6 @@ class DashboardScreen extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 32),
-
-                // Stats strip
-                _StatsStrip(),
               ]),
             ),
           ),
@@ -167,12 +108,6 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
-    return 'Evening';
-  }
 }
 
 // ─────────────────────────────────────────────
@@ -181,19 +116,17 @@ class DashboardScreen extends StatelessWidget {
 
 class _NavCard extends StatefulWidget {
   final String title;
-  final String subtitle;
   final IconData icon;
   final LinearGradient gradient;
-  final String badgeText;
+  final String? badgeText;
   final Color? badgeColor;
   final VoidCallback onTap;
 
   const _NavCard({
     required this.title,
-    required this.subtitle,
     required this.icon,
     required this.gradient,
-    required this.badgeText,
+    this.badgeText,
     required this.onTap,
     this.badgeColor,
   });
@@ -284,18 +217,18 @@ class _NavCardState extends State<_NavCard>
                   children: [
                     // Icon container
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
                         widget.icon,
                         color: Colors.white,
-                        size: 30,
+                        size: 40,
                       ),
                     ),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 24),
 
                     // Text
                     Expanded(
@@ -303,47 +236,39 @@ class _NavCardState extends State<_NavCard>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: (widget.badgeColor ?? Colors.green.shade600)
-                                  .withOpacity(0.25),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: (widget.badgeColor ??
-                                        Colors.green.shade600)
-                                    .withOpacity(0.5),
-                                width: 1,
+                          if (widget.badgeText != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (widget.badgeColor ?? Colors.green.shade600)
+                                    .withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: (widget.badgeColor ??
+                                          Colors.green.shade600)
+                                      .withOpacity(0.5),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                widget.badgeText!,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
-                            child: Text(
-                              widget.badgeText,
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
+                            const SizedBox(height: 10),
+                          ],
                           Text(
                             widget.title,
                             style: GoogleFonts.inter(
                               color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.subtitle,
-                            style: GoogleFonts.inter(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              height: 1.4,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],
@@ -354,7 +279,7 @@ class _NavCardState extends State<_NavCard>
                     const Icon(
                       Icons.arrow_forward_ios_rounded,
                       color: Colors.white54,
-                      size: 18,
+                      size: 24,
                     ),
                   ],
                 ),

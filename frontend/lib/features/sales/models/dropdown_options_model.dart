@@ -112,4 +112,20 @@ class DropdownOptionsModel {
         heads:   [],
         colours: [],
       );
+
+  DropdownOptionsModel copyWith({
+    List<LookupOption>? items,
+    List<LookupOption>? threads,
+    List<LookupOption>? lengths,
+    List<LookupOption>? heads,
+    List<LookupOption>? colours,
+  }) {
+    return DropdownOptionsModel(
+      items: items ?? this.items,
+      threads: threads ?? this.threads,
+      lengths: lengths ?? this.lengths,
+      heads: heads ?? this.heads,
+      colours: colours ?? this.colours,
+    );
+  }
 }

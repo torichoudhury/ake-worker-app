@@ -81,8 +81,9 @@ class ApiService {
   // ─────────────────────────────────────────────
 
   /// Fetches all dropdown option lists (items, threads, lengths, heads, colours).
-  Future<DropdownOptionsModel> fetchDropdownOptions() async {
-    final response = await _get('/items/all');
+  Future<DropdownOptionsModel> fetchDropdownOptions({String? itemName}) async {
+    final query = itemName != null ? '?name=${Uri.encodeQueryComponent(itemName)}' : '';
+    final response = await _get('/items/all$query');
     return DropdownOptionsModel.fromJson(
         response['data'] as Map<String, dynamic>);
   }

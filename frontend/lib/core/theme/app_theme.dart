@@ -76,11 +76,11 @@ class AppTheme {
         ),
         labelStyle: GoogleFonts.inter(
           color: Colors.grey.shade600,
-          fontSize: 14,
+          fontSize: 16,
         ),
         hintStyle: GoogleFonts.inter(
           color: Colors.grey.shade400,
-          fontSize: 14,
+          fontSize: 16,
         ),
       ),
 

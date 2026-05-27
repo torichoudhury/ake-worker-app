@@ -7,9 +7,8 @@ class AppConstants {
   // ─── API ───────────────────────────────────
   // For Android emulator: 10.0.2.2 maps to host machine's localhost
   // For iOS simulator:    127.0.0.1
-  // For physical device:  your machine's LAN IP, e.g. 192.168.1.10
-  // Note: Using 127.0.0.1 because ADB reverse proxy is active for the physical device
-  static const String baseUrl = 'http://127.0.0.1:3000/api';
+  // For physical device over Wi-Fi: your machine's LAN IP
+  static const String baseUrl = 'http://10.55.39.71:3000/api';
 
   // Set to TRUE for UI testing without a running backend
   // Mock mode removed — app always calls the real backend
