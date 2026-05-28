@@ -13,7 +13,7 @@ class LookupOption {
   factory LookupOption.fromJson(Map<String, dynamic> json,
       {String labelKey = 'name'}) {
     return LookupOption(
-      label: json[labelKey] as String,
+      label: json[labelKey].toString(),
     );
   }
 
@@ -90,10 +90,20 @@ class DropdownOptionsModel {
 
   factory DropdownOptionsModel.fromJson(Map<String, dynamic> json) {
     List<LookupOption> parse(dynamic list, {String labelKey = 'name'}) {
-      return (list as List<dynamic>)
-          .map((e) =>
-              LookupOption.fromJson(e as Map<String, dynamic>, labelKey: labelKey))
-          .toList();
+      if (list == null) return [];
+      final uniqueSet = <String>{};
+      final result = <LookupOption>[];
+      
+      for (var e in list as List<dynamic>) {
+        final val = e[labelKey];
+        if (val != null) {
+          final strVal = val.toString().trim();
+          if (strVal.isNotEmpty && uniqueSet.add(strVal)) {
+            result.add(LookupOption(label: strVal));
+          }
+        }
+      }
+      return result;
     }
 
     return DropdownOptionsModel(

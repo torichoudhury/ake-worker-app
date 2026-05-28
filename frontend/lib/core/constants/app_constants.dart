@@ -8,7 +8,7 @@ class AppConstants {
   // For Android emulator: 10.0.2.2 maps to host machine's localhost
   // For iOS simulator:    127.0.0.1
   // For physical device over Wi-Fi: your machine's LAN IP
-  static const String baseUrl = 'http://10.55.39.71:3000/api';
+  static const String baseUrl = 'http://172.28.5.10:3000/api';
 
   // Set to TRUE for UI testing without a running backend
   // Mock mode removed — app always calls the real backend
@@ -16,7 +16,7 @@ class AppConstants {
   static const Duration connectTimeout = Duration(seconds: 10);
 
   // ─── UoM Options ───────────────────────────
-  static const List<String> uomOptions = ['5', 'Gross', 'KH', 'Pcs', 'Box'];
+  static const List<String> uomOptions = ['%', 'Gross', 'KG', 'Pcs', 'Bag', 'Box'];
 
   // ─── Mode Options ──────────────────────────
   static const List<String> modeOptions = [

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../sales/screens/sales_transaction_screen.dart';
 import '../../movement/screens/movement_screen.dart';
+import '../../due_bills/screens/due_bills_screen.dart';
+import '../../contacts/screens/contact_form_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -74,13 +76,10 @@ class DashboardScreen extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [Color(0xFFE65100), Color(0xFFFF9800)],
                   ),
-                  badgeText: 'Coming Soon',
-                  badgeColor: Colors.deepOrange.shade900,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Coming Soon!')),
-                    );
-                  },
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DueBillsScreen()),
+                  ),
                 ),
 
                 const SizedBox(height: 24),
@@ -96,6 +95,22 @@ class DashboardScreen extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const MovementScreen()),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                _NavCard(
+                  title: 'Add Customer/Vendor',
+                  icon: Icons.person_add_alt_1_rounded,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF00695C), Color(0xFF009688)],
+                  ),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ContactFormScreen()),
                   ),
                 ),
 

@@ -41,3 +41,18 @@ CREATE POLICY "service_role_all" ON threads            FOR ALL TO service_role U
 CREATE POLICY "service_role_all" ON lengths            FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY "service_role_all" ON heads              FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY "service_role_all" ON colours            FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- ─────────────────────────────────────────────
+-- MOVEMENT LOGS
+-- ─────────────────────────────────────────────
+CREATE TABLE movement_logs ( 
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  date text, 
+  activity text,
+  item_id int,
+  quantity real,
+  uom text, 
+  packet real, 
+  per_packet real, 
+  uom_packet text
+);

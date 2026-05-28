@@ -185,9 +185,14 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
       SnackBar(
         content: Row(
           children: [
-            Icon(isError ? Icons.error_rounded : Icons.check_circle_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message, style: GoogleFonts.inter(color: Colors.white, fontSize: 14))),
+            Icon(isError ? Icons.error_rounded : Icons.check_circle_rounded, color: Colors.white, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+            ),
           ],
         ),
         backgroundColor: isError ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32),
@@ -505,7 +510,7 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                             style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15, color: const Color(0xFF1A2340)),
                           ),
                           TextSpan(
-                            text: '${item.thread.label} * ${item.length.label} * ${item.head.label} * ${item.colour.label}',
+                            text: '  ${item.length.label} * ${item.thread.label} | ${item.head.label} | ${item.colour.label}',
                             style: GoogleFonts.inter(fontWeight: FontWeight.normal, fontSize: 14, color: Colors.grey.shade700),
                           ),
                         ],

@@ -13,7 +13,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 // Constants
 // ─────────────────────────────────────────────
 
-const VALID_UOM  = ['5', 'Gross', 'KH', 'Pcs', 'Box'];
+const VALID_UOM  = ['%', 'Gross', 'KG', 'Pcs', 'Bag', 'Box'];
 const VALID_MODE = ['cash', 'online', 'credit-slip', 'gst-cash', 'gst-bank', 'gst-credit'];
 
 // ─────────────────────────────────────────────
@@ -75,7 +75,7 @@ router.post(
       for (const item of items) {
         // Resolve item_id from item_master
         const itemLookup = await client.query(
-          `SELECT id FROM item_master
+          `SELECT item_id FROM item_master
            WHERE name = $1 AND thread = $2 AND length = $3 AND head = $4 AND colour = $5
            LIMIT 1`,
           [item.item_name, item.thread, item.length, item.head, item.colour]
@@ -85,7 +85,7 @@ router.post(
           throw new Error(`No matching item found for: ${item.item_name} ${item.thread} ${item.length} ${item.head} ${item.colour}`);
         }
 
-        const itemId = itemLookup.rows[0].id;
+        const itemId = itemLookup.rows[0].item_id;
         const qty    = parseFloat(item.quantity);
         const rateVal= parseFloat(item.rate);
         const amount = parseFloat((qty * rateVal).toFixed(2));

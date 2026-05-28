@@ -19,6 +19,7 @@ class AppTextField extends StatelessWidget {
   final int? maxLines;
   final Widget? suffixIcon;
   final Widget? prefixIcon;
+  final TextCapitalization textCapitalization;
 
   const AppTextField({
     super.key,
@@ -35,6 +36,7 @@ class AppTextField extends StatelessWidget {
     this.maxLines = 1,
     this.suffixIcon,
     this.prefixIcon,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   @override
@@ -44,6 +46,7 @@ class AppTextField extends StatelessWidget {
       initialValue: controller == null ? initialValue : null,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
       readOnly: readOnly,
       enabled: enabled,
       maxLines: maxLines,

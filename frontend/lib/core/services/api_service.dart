@@ -32,6 +32,7 @@ class ApiService {
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
       };
 
   Future<Map<String, dynamic>> _get(String path) async {
@@ -72,7 +73,19 @@ class ApiService {
       return decoded;
     }
 
-    final message = decoded['error'] as String? ?? 'Unknown server error';
+    String message = decoded['error'] as String? ?? 'Unknown server error';
+    
+    if (decoded['details'] != null && decoded['details'] is List && (decoded['details'] as List).isNotEmpty) {
+      final details = decoded['details'] as List;
+      final firstDetail = details.first as Map<String, dynamic>;
+      if (firstDetail['msg'] != null) {
+        message = '$message: ${firstDetail['msg']}';
+        if (firstDetail['path'] != null) {
+           message = '$message (Field: ${firstDetail['path']})';
+        }
+      }
+    }
+
     throw ApiException(message, statusCode: response.statusCode);
   }
 
@@ -104,6 +117,48 @@ class ApiService {
   Future<Map<String, dynamic>> createTransaction(
       Map<String, dynamic> payload) async {
     final response = await _post('/transactions', payload);
+    return response['data'] as Map<String, dynamic>;
+  }
+
+  // Movement API
+  Future<Map<String, dynamic>> createMovement(Map<String, dynamic> payload) async {
+    final response = await _post('/movement', payload);
+    return response['data'] as Map<String, dynamic>;
+  }
+
+  // Dues / Treasury
+  // ─────────────────────────────────────────────
+  Future<List<dynamic>> fetchDues({String? name, String? phone}) async {
+    final queryParams = <String, String>{};
+    if (name != null && name.isNotEmpty) queryParams['name'] = name;
+    if (phone != null && phone.isNotEmpty) queryParams['phone'] = phone;
+
+    final queryStr = Uri(queryParameters: queryParams).query;
+    final path = '/dues${queryStr.isNotEmpty ? '?$queryStr' : ''}';
+    final response = await _get(path);
+    return response['data'] as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> settleDue(int transactionId, double balanceSettled, {String? date}) async {
+    final Map<String, dynamic> body = {
+      'transaction_id': transactionId,
+      'balance_settled': balanceSettled,
+    };
+    if (date != null) {
+      body['date'] = date;
+    }
+    final response = await _post('/dues/settle', body);
+    return response['data'] as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> fetchDueHistory(int transactionId) async {
+    final response = await _get('/dues/$transactionId/history');
+    return response['data'] as List<dynamic>;
+  }
+
+  // Contacts API
+  Future<Map<String, dynamic>> createContact(Map<String, dynamic> payload) async {
+    final response = await _post('/contacts', payload);
     return response['data'] as Map<String, dynamic>;
   }
 }
