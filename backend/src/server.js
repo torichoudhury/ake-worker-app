@@ -53,11 +53,21 @@ app.use(
 );
 
 // ─────────────────────────────────────────────
-// Health check
+// Root & Health check
 // ─────────────────────────────────────────────
+
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    service: 'ake-worker-backend',
+    version: require('../package.json').version,
+    status: 'running',
+  });
+});
 
 app.get('/health', (req, res) => {
   res.json({
+    success: true,
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'ake-worker-backend',

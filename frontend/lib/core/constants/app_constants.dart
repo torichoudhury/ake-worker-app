@@ -8,12 +8,12 @@ class AppConstants {
   // For Android emulator: 10.0.2.2 maps to host machine's localhost
   // For iOS simulator:    127.0.0.1
   // For physical device over Wi-Fi: your machine's LAN IP
-  static const String baseUrl = 'http://172.28.5.10:3000/api';
+  static const String baseUrl = 'https://ake-worker-app.onrender.com/api';
 
   // Set to TRUE for UI testing without a running backend
   // Mock mode removed — app always calls the real backend
 
-  static const Duration connectTimeout = Duration(seconds: 10);
+  static const Duration connectTimeout = Duration(seconds: 60);
 
   // ─── UoM Options ───────────────────────────
   static const List<String> uomOptions = ['%', 'Gross', 'KG', 'Pcs', 'Bag', 'Box'];
