@@ -1,6 +1,10 @@
 // src/server.js
 // Entry point for the AKE Worker App backend
 
+// Force IPv4 DNS resolution — Render free tier cannot reach Supabase over IPv6
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
 require('dotenv').config();
 
 const express = require('express');
