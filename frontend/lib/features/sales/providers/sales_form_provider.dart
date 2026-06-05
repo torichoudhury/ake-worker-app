@@ -98,12 +98,17 @@ class SalesFormProvider extends ChangeNotifier {
     _selectedColour = null;
     notifyListeners();
 
-    _fetchFilteredOptions(v?.label);
+    _fetchFilteredOptions();
   }
 
-  Future<void> _fetchFilteredOptions(String? itemName) async {
+  Future<void> _fetchFilteredOptions() async {
     try {
-      final newOptions = await ApiService.instance.fetchDropdownOptions(itemName: itemName);
+      final newOptions = await ApiService.instance.fetchDropdownOptions(
+        itemName: _selectedItem?.label,
+        thread: _selectedThread?.label,
+        length: _selectedLength?.label,
+        head: _selectedHead?.label,
+      );
       _options = _options.copyWith(
         threads: newOptions.threads,
         lengths: newOptions.lengths,
@@ -115,10 +120,35 @@ class SalesFormProvider extends ChangeNotifier {
       debugPrint('Failed to fetch filtered options: $e');
     }
   }
-  void setThread(LookupOption? v) { _selectedThread = v; notifyListeners(); }
-  void setLength(LookupOption? v) { _selectedLength = v; notifyListeners(); }
-  void setHead(LookupOption? v) { _selectedHead = v; notifyListeners(); }
-  void setColour(LookupOption? v) { _selectedColour = v; notifyListeners(); }
+
+  void setThread(LookupOption? v) { 
+    _selectedThread = v; 
+    _selectedLength = null;
+    _selectedHead = null;
+    _selectedColour = null;
+    notifyListeners(); 
+    _fetchFilteredOptions();
+  }
+  
+  void setLength(LookupOption? v) { 
+    _selectedLength = v; 
+    _selectedHead = null;
+    _selectedColour = null;
+    notifyListeners(); 
+    _fetchFilteredOptions();
+  }
+  
+  void setHead(LookupOption? v) { 
+    _selectedHead = v; 
+    _selectedColour = null;
+    notifyListeners(); 
+    _fetchFilteredOptions();
+  }
+  
+  void setColour(LookupOption? v) { 
+    _selectedColour = v; 
+    notifyListeners(); 
+  }
   void setUom(String? v) { _selectedUom = v; notifyListeners(); }
   void setMode(String? v) { _selectedMode = v; notifyListeners(); }
 

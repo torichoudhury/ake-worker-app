@@ -25,7 +25,7 @@ router.get(
     let baseQuery = `
       SELECT 
         tt.transaction_id,
-        tt.amount,
+        (SELECT amount FROM transaction_treasury WHERE transaction_id = tt.transaction_id AND iteration = 1) AS amount,
         tt.due_amount,
         st.date,
         st.party

@@ -377,7 +377,7 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
             children: [
               Expanded(
                 child: AppDropdown<LookupOption>(
-                  label: 'Thread',
+                  label: 'Thread/ID',
                   value: provider.selectedThread,
                   items: provider.threads,
                   itemLabel: (o) => o.label,
@@ -389,13 +389,13 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
               const SizedBox(width: 12),
               Expanded(
                 child: AppDropdown<LookupOption>(
-                  label: 'Length',
+                  label: 'Length/OD',
                   value: provider.selectedLength,
                   items: provider.lengths,
                   itemLabel: (o) => o.label,
                   onChanged: provider.setLength,
                   enabled: provider.selectedThread != null,
-                  hint: provider.selectedThread == null ? 'Select Thread First' : null,
+                  hint: provider.selectedThread == null ? 'Select Thread/ID First' : null,
                 ),
               ),
             ],
@@ -411,7 +411,7 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                   itemLabel: (o) => o.label,
                   onChanged: provider.setHead,
                   enabled: provider.selectedLength != null,
-                  hint: provider.selectedLength == null ? 'Select Length First' : null,
+                  hint: provider.selectedLength == null ? 'Select Length/OD First' : null,
                 ),
               ),
               const SizedBox(width: 12),

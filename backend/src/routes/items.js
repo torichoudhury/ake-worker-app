@@ -15,21 +15,50 @@ const { asyncHandler } = require('../middleware/errorHandler');
 router.get(
   '/all',
   asyncHandler(async (req, res) => {
-    const name = req.query.name;
-    let whereClause = '';
-    let params = [];
+    const { name, thread, length, head } = req.query;
+
+    let baseParams = [];
+    let baseWhere = '';
 
     if (name) {
-      whereClause = 'AND name = $1';
-      params = [name];
+      baseParams.push(name);
+      baseWhere += ` AND name = $${baseParams.length}`;
+    }
+
+    // Threads only depend on name
+    let threadsWhere = baseWhere;
+    let threadsParams = [...baseParams];
+
+    // Lengths depend on name and thread
+    let lengthsWhere = threadsWhere;
+    let lengthsParams = [...threadsParams];
+    if (thread) {
+      lengthsParams.push(thread);
+      lengthsWhere += ` AND thread = $${lengthsParams.length}`;
+    }
+
+    // Heads depend on name, thread, and length
+    let headsWhere = lengthsWhere;
+    let headsParams = [...lengthsParams];
+    if (length) {
+      headsParams.push(length);
+      headsWhere += ` AND length = $${headsParams.length}`;
+    }
+
+    // Colours depend on name, thread, length, and head
+    let coloursWhere = headsWhere;
+    let coloursParams = [...headsParams];
+    if (head) {
+      coloursParams.push(head);
+      coloursWhere += ` AND head = $${coloursParams.length}`;
     }
 
     const [items, threads, lengths, heads, colours] = await Promise.all([
       db.query('SELECT DISTINCT name FROM item_master WHERE name IS NOT NULL ORDER BY name ASC'),
-      db.query(`SELECT DISTINCT thread AS name FROM item_master WHERE thread IS NOT NULL ${whereClause} ORDER BY thread ASC`, params),
-      db.query(`SELECT DISTINCT length AS value FROM item_master WHERE length IS NOT NULL ${whereClause} ORDER BY length ASC`, params),
-      db.query(`SELECT DISTINCT head AS name FROM item_master WHERE head IS NOT NULL ${whereClause} ORDER BY head ASC`, params),
-      db.query(`SELECT DISTINCT colour AS name FROM item_master WHERE colour IS NOT NULL ${whereClause} ORDER BY colour ASC`, params),
+      db.query(`SELECT DISTINCT thread AS name FROM item_master WHERE thread IS NOT NULL ${threadsWhere} ORDER BY thread ASC`, threadsParams),
+      db.query(`SELECT DISTINCT length AS value FROM item_master WHERE length IS NOT NULL ${lengthsWhere} ORDER BY length ASC`, lengthsParams),
+      db.query(`SELECT DISTINCT head AS name FROM item_master WHERE head IS NOT NULL ${headsWhere} ORDER BY head ASC`, headsParams),
+      db.query(`SELECT DISTINCT colour AS name FROM item_master WHERE colour IS NOT NULL ${coloursWhere} ORDER BY colour ASC`, coloursParams),
     ]);
 
     res.json({
