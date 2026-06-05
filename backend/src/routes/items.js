@@ -22,7 +22,7 @@ router.get(
 
     if (name) {
       baseParams.push(name);
-      baseWhere += ` AND name = $${baseParams.length}`;
+      baseWhere += ` AND TRIM(LOWER(name)) = TRIM(LOWER($${baseParams.length}))`;
     }
 
     // Threads only depend on name
@@ -34,7 +34,7 @@ router.get(
     let lengthsParams = [...threadsParams];
     if (thread) {
       lengthsParams.push(thread);
-      lengthsWhere += ` AND thread = $${lengthsParams.length}`;
+      lengthsWhere += ` AND TRIM(LOWER(thread)) = TRIM(LOWER($${lengthsParams.length}))`;
     }
 
     // Heads depend on name, thread, and length
@@ -42,7 +42,7 @@ router.get(
     let headsParams = [...lengthsParams];
     if (length) {
       headsParams.push(length);
-      headsWhere += ` AND length = $${headsParams.length}`;
+      headsWhere += ` AND length::text = $${headsParams.length}::text`;
     }
 
     // Colours depend on name, thread, length, and head
@@ -50,7 +50,7 @@ router.get(
     let coloursParams = [...headsParams];
     if (head) {
       coloursParams.push(head);
-      coloursWhere += ` AND head = $${coloursParams.length}`;
+      coloursWhere += ` AND TRIM(LOWER(head)) = TRIM(LOWER($${coloursParams.length}))`;
     }
 
     const [items, threads, lengths, heads, colours] = await Promise.all([

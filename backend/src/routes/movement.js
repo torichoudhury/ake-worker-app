@@ -78,7 +78,11 @@ router.post(
         if (item.quantity !== null && item.quantity !== undefined) {
           const itemLookup = await client.query(
             `SELECT item_id FROM item_master
-             WHERE name = $1 AND thread = $2 AND length = $3 AND head = $4 AND colour = $5
+             WHERE TRIM(LOWER(name)) = TRIM(LOWER($1))
+               AND TRIM(LOWER(thread)) = TRIM(LOWER($2))
+               AND length::text = $3::text
+               AND TRIM(LOWER(head)) = TRIM(LOWER($4))
+               AND TRIM(LOWER(colour)) = TRIM(LOWER($5))
              LIMIT 1`,
             [item.item_name, item.thread, item.length, item.head, item.colour]
           );
@@ -109,7 +113,11 @@ router.post(
         if (item.after_quantity !== null && item.after_quantity !== undefined && item.after_colour) {
           const afterItemLookup = await client.query(
             `SELECT item_id FROM item_master
-             WHERE name = $1 AND thread = $2 AND length = $3 AND head = $4 AND colour = $5
+             WHERE TRIM(LOWER(name)) = TRIM(LOWER($1))
+               AND TRIM(LOWER(thread)) = TRIM(LOWER($2))
+               AND length::text = $3::text
+               AND TRIM(LOWER(head)) = TRIM(LOWER($4))
+               AND TRIM(LOWER(colour)) = TRIM(LOWER($5))
              LIMIT 1`,
             [item.item_name, item.thread, item.length, item.head, item.after_colour]
           );
