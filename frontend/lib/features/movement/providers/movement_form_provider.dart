@@ -39,6 +39,14 @@ class MovementFormProvider extends ChangeNotifier {
   String? _packetUom;
   int? _perPacket;
 
+  // After Plating Fields
+  LookupOption? _afterColour;
+  double? _afterQuantity;
+  double? _afterPacket;
+  String? _afterUom;
+  String? _afterPacketUom;
+  int? _afterPerPacket;
+
   // Multi-item cart
   final List<MovementItem> _movementItems = [];
 
@@ -64,6 +72,13 @@ class MovementFormProvider extends ChangeNotifier {
   String? get packetUom => _packetUom;
   int? get perPacket => _perPacket;
 
+  LookupOption? get afterColour => _afterColour;
+  double? get afterQuantity => _afterQuantity;
+  double? get afterPacket => _afterPacket;
+  String? get afterUom => _afterUom;
+  String? get afterPacketUom => _afterPacketUom;
+  int? get afterPerPacket => _afterPerPacket;
+
   List<MovementItem> get movementItems => _movementItems;
 
   bool get isSubmitting => _isSubmitting;
@@ -71,6 +86,7 @@ class MovementFormProvider extends ChangeNotifier {
   int? get lastMovementId => _lastMovementId;
 
   bool get isPackingActivity => _selectedActivity == 'Packing: Box to Bag';
+  bool get isPlatingLocation => _fromLocation == 'Plating' || _toLocation == 'Plating';
 
   // Setters
   void setDate(String v) { _selectedDate = v; notifyListeners(); }
@@ -88,6 +104,7 @@ class MovementFormProvider extends ChangeNotifier {
     _selectedLength = null;
     _selectedHead = null;
     _selectedColour = null;
+    _afterColour = null;
     notifyListeners();
 
     _fetchFilteredOptions(v?.label);
@@ -131,11 +148,39 @@ class MovementFormProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setAfterColour(LookupOption? v) { _afterColour = v; notifyListeners(); }
+  
+  void setAfterQuantity(String text) {
+    _afterQuantity = text.isEmpty ? null : double.tryParse(text);
+    notifyListeners();
+  }
+  
+  void setAfterPacket(String text) {
+    _afterPacket = text.isEmpty ? null : double.tryParse(text);
+    notifyListeners();
+  }
+  
+  void setAfterUom(String? v) { _afterUom = v; notifyListeners(); }
+  void setAfterPacketUom(String? v) { _afterPacketUom = v; notifyListeners(); }
+  
+  void setAfterPerPacket(String text) {
+    _afterPerPacket = text.isEmpty ? null : int.tryParse(text);
+    notifyListeners();
+  }
+
   // Cart Methods
   void addMovementItem() {
     if (_selectedItem == null || _selectedThread == null || _selectedLength == null ||
-        _selectedHead == null || _selectedColour == null || _quantity == null || _selectedUom == null) {
+        _selectedHead == null || _selectedColour == null) {
       return;
+    }
+
+    if (isPlatingLocation) {
+      final hasBefore = _quantity != null && _selectedUom != null;
+      final hasAfter = _afterColour != null && _afterQuantity != null && _afterUom != null;
+      if (!hasBefore && !hasAfter) return; // Must have at least one side
+    } else {
+      if (_quantity == null || _selectedUom == null) return;
     }
 
     _movementItems.add(MovementItem(
@@ -144,11 +189,17 @@ class MovementFormProvider extends ChangeNotifier {
       length: _selectedLength!,
       head: _selectedHead!,
       colour: _selectedColour!,
-      quantity: _quantity!,
-      uom: _selectedUom!,
+      quantity: _quantity,
+      uom: _selectedUom,
       packet: _packet,
       perPacket: _perPacket,
       packetUom: _packetUom,
+      afterColour: _afterColour,
+      afterQuantity: _afterQuantity,
+      afterUom: _afterUom,
+      afterPacket: _afterPacket,
+      afterPerPacket: _afterPerPacket,
+      afterPacketUom: _afterPacketUom,
     ));
 
     // Reset item form fields
@@ -193,13 +244,37 @@ class MovementFormProvider extends ChangeNotifier {
       return false;
     }
     
-    if (!isPackingActivity && _movementItems.isEmpty) {
+    if (!isPackingActivity && _fromLocation == _toLocation) {
+      _submitError = 'From and To locations cannot be the same.';
+      return false;
+    }
+    
+    if (!isPackingActivity && !isPlatingLocation && _movementItems.isEmpty) {
       _submitError = 'List is empty. Please add items.';
       return false;
     }
+    
     if (isPackingActivity && (_selectedItem == null || _quantity == null || _selectedUom == null)) {
       _submitError = 'Please fill out all required packing fields (Item, Quantity, UoM).';
       return false;
+    }
+
+    if (isPlatingLocation) {
+      bool isValid = _selectedItem != null && _selectedThread != null && _selectedLength != null && _selectedHead != null && _selectedColour != null;
+      final hasBeforeQty = _quantity != null && _selectedUom != null;
+      final hasAfterQty = _afterQuantity != null && _afterUom != null && _afterColour != null;
+      
+      final isPartialBefore = (_quantity != null || _selectedUom != null) && !hasBeforeQty;
+      final isPartialAfter = (_afterQuantity != null || _afterUom != null || _afterColour != null) && !hasAfterQty;
+      
+      if (!isValid || (!hasBeforeQty && !hasAfterQty)) {
+        _submitError = 'Please fill out required item details and at least one Plating quantity (Before or After).';
+        return false;
+      }
+      if (isPartialBefore || isPartialAfter) {
+        _submitError = 'You have partially filled a section. Please complete both Quantity and UoM for whichever sections you are using, and select the New Colour for After Plating.';
+        return false;
+      }
     }
 
     _isSubmitting = true;
@@ -222,6 +297,25 @@ class MovementFormProvider extends ChangeNotifier {
           'per_packet': _perPacket,
           'uom_packet': _packetUom,
         });
+      } else if (isPlatingLocation) {
+        itemsPayload.add({
+          'item_name': _selectedItem!.label,
+          'thread': _selectedThread!.label,
+          'length': _selectedLength!.label,
+          'head': _selectedHead!.label,
+          'colour': _selectedColour!.label,
+          'quantity': _quantity,
+          'uom': _selectedUom,
+          'packet': _packet,
+          'per_packet': _perPacket,
+          'uom_packet': _packetUom,
+          'after_colour': _afterColour?.label,
+          'after_quantity': _afterQuantity,
+          'after_uom': _afterUom,
+          'after_packet': _afterPacket,
+          'after_per_packet': _afterPerPacket,
+          'after_uom_packet': _afterPacketUom,
+        });
       } else {
         itemsPayload = _movementItems.map((item) => {
           'item_name': item.item.label,
@@ -234,6 +328,12 @@ class MovementFormProvider extends ChangeNotifier {
           'packet': item.packet,
           'per_packet': item.perPacket,
           'uom_packet': item.packetUom,
+          'after_colour': item.afterColour?.label,
+          'after_quantity': item.afterQuantity,
+          'after_uom': item.afterUom,
+          'after_packet': item.afterPacket,
+          'after_per_packet': item.afterPerPacket,
+          'after_uom_packet': item.afterPacketUom,
         }).toList();
       }
 
@@ -275,6 +375,12 @@ class MovementFormProvider extends ChangeNotifier {
     _selectedUom = null;
     _packetUom = null;
     _perPacket = null;
+    _afterColour = null;
+    _afterQuantity = null;
+    _afterPacket = null;
+    _afterUom = null;
+    _afterPacketUom = null;
+    _afterPerPacket = null;
     _movementItems.clear();
     _lastMovementId = null;
     notifyListeners();

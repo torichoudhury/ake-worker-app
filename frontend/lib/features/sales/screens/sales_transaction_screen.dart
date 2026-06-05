@@ -382,6 +382,8 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                   items: provider.threads,
                   itemLabel: (o) => o.label,
                   onChanged: provider.setThread,
+                  enabled: provider.selectedItem != null,
+                  hint: provider.selectedItem == null ? 'Select Item First' : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -392,6 +394,8 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                   items: provider.lengths,
                   itemLabel: (o) => o.label,
                   onChanged: provider.setLength,
+                  enabled: provider.selectedThread != null,
+                  hint: provider.selectedThread == null ? 'Select Thread First' : null,
                 ),
               ),
             ],
@@ -406,6 +410,8 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                   items: provider.heads,
                   itemLabel: (o) => o.label,
                   onChanged: provider.setHead,
+                  enabled: provider.selectedLength != null,
+                  hint: provider.selectedLength == null ? 'Select Length First' : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -416,6 +422,8 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                   items: provider.colours,
                   itemLabel: (o) => o.label,
                   onChanged: provider.setColour,
+                  enabled: provider.selectedHead != null,
+                  hint: provider.selectedHead == null ? 'Select Head First' : null,
                 ),
               ),
             ],
@@ -523,8 +531,9 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                         style: GoogleFonts.inter(fontSize: 13, color: Colors.grey.shade600),
                       ),
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    trailing: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 4,
                       children: [
                         Text(
                           '₹${item.amount.toStringAsFixed(2)}',
@@ -532,6 +541,8 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFD32F2F), size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                           onPressed: () => provider.removeFromCart(index),
                         ),
                       ],

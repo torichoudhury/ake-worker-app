@@ -244,13 +244,19 @@ class _DueBillItemState extends State<_DueBillItem> {
                       final rem = h['due_amount']?.toString() ?? '0';
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        child: Row(
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          runSpacing: 4,
                           children: [
                             Text(dateStr, style: GoogleFonts.inter(fontSize: 13, color: Colors.grey.shade600)),
-                            const Spacer(),
-                            Text('- ₹$amount', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
-                            const SizedBox(width: 16),
-                            Text('Rem: ₹$rem', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey.shade800)),
+                            Wrap(
+                              spacing: 16,
+                              children: [
+                                Text('- ₹$amount', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+                                Text('Rem: ₹$rem', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey.shade800)),
+                              ],
+                            ),
                           ],
                         ),
                       );

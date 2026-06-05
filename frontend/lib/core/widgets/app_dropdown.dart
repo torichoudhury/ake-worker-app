@@ -57,10 +57,11 @@ class AppDropdown<T> extends StatelessWidget {
       validator: validator,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       icon: Icon(
-        Icons.keyboard_arrow_down_rounded,
+        enabled ? Icons.keyboard_arrow_down_rounded : Icons.lock_rounded,
         color: enabled
             ? Theme.of(context).colorScheme.primary
             : Colors.grey.shade400,
+        size: enabled ? 24 : 20,
       ),
       dropdownColor: Colors.white,
       borderRadius: BorderRadius.circular(12),

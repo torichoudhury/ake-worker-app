@@ -6,12 +6,20 @@ class MovementItem {
   final LookupOption thread;
   final LookupOption length;
   final LookupOption head;
-  final LookupOption colour;
-  final double quantity;
-  final String uom;
+  final LookupOption colour; // Before Colour
+  final double? quantity; // Before Quantity
+  final String? uom; // Before UoM
   final double? packet;
   final int? perPacket;
   final String? packetUom;
+
+  // After Plating Fields
+  final LookupOption? afterColour;
+  final double? afterQuantity;
+  final String? afterUom;
+  final double? afterPacket;
+  final int? afterPerPacket;
+  final String? afterPacketUom;
 
   const MovementItem({
     required this.item,
@@ -19,10 +27,16 @@ class MovementItem {
     required this.length,
     required this.head,
     required this.colour,
-    required this.quantity,
-    required this.uom,
+    this.quantity,
+    this.uom,
     this.packet,
     this.perPacket,
     this.packetUom,
+    this.afterColour,
+    this.afterQuantity,
+    this.afterUom,
+    this.afterPacket,
+    this.afterPerPacket,
+    this.afterPacketUom,
   });
 }

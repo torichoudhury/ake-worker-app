@@ -33,5 +33,6 @@ class AppConstants {
     'Home Godown',
     'Ake',
     'Radhe',
+    'Plating',
   ];
 }

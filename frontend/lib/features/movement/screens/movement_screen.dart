@@ -36,10 +36,14 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
   final _quantityController = TextEditingController();
   final _packetController = TextEditingController();
   final _perPacketController = TextEditingController();
+  
+  final _afterQuantityController = TextEditingController();
+  final _afterPacketController = TextEditingController();
+  final _afterPerPacketController = TextEditingController();
 
   final List<String> _activityOptions = [
     'Packing: Box to Bag',
-    'OUT/IN',
+    'OUT/IN (inc. Plating)',
   ];
 
   @override
@@ -47,6 +51,9 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
     _quantityController.dispose();
     _packetController.dispose();
     _perPacketController.dispose();
+    _afterQuantityController.dispose();
+    _afterPacketController.dispose();
+    _afterPerPacketController.dispose();
     super.dispose();
   }
 
@@ -117,6 +124,9 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
               _quantityController.clear();
               _packetController.clear();
               _perPacketController.clear();
+              _afterQuantityController.clear();
+              _afterPacketController.clear();
+              _afterPerPacketController.clear();
               provider.resetForm();
             },
             style: ElevatedButton.styleFrom(
@@ -175,6 +185,9 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
               _quantityController.clear();
               _packetController.clear();
               _perPacketController.clear();
+              _afterQuantityController.clear();
+              _afterPacketController.clear();
+              _afterPerPacketController.clear();
               provider.resetForm();
             },
           ),
@@ -211,7 +224,7 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
   }
 
   Widget _buildForm(MovementFormProvider provider) {
-    final showCartSystem = provider.selectedActivity != null && !provider.isPackingActivity;
+    final showCartSystem = provider.selectedActivity != null && !provider.isPackingActivity && !provider.isPlatingLocation;
     
     return Column(
       children: [
@@ -364,8 +377,8 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
                 items: provider.lengths,
                 itemLabel: (o) => o.label,
                 onChanged: provider.setLength,
-                enabled: provider.selectedItem != null,
-                hint: provider.selectedItem == null ? 'Select Item First' : null,
+                enabled: provider.selectedThread != null,
+                hint: provider.selectedThread == null ? 'Select Thread First' : null,
               ),
             ),
           ],
@@ -380,8 +393,8 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
                 items: provider.heads,
                 itemLabel: (o) => o.label,
                 onChanged: provider.setHead,
-                enabled: provider.selectedItem != null,
-                hint: provider.selectedItem == null ? 'Select Item First' : null,
+                enabled: provider.selectedLength != null,
+                hint: provider.selectedLength == null ? 'Select Length First' : null,
               ),
             ),
             const SizedBox(width: 12),
@@ -392,12 +405,26 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
                 items: provider.colours,
                 itemLabel: (o) => o.label,
                 onChanged: provider.setColour,
-                enabled: provider.selectedItem != null,
-                hint: provider.selectedItem == null ? 'Select Item First' : null,
+                enabled: provider.selectedHead != null,
+                hint: provider.selectedHead == null ? 'Select Head First' : null,
               ),
             ),
           ],
         ),
+        if (provider.isPlatingLocation) ...[
+          const Divider(height: 32),
+          Text('New Colour (After Plating)', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+          const SizedBox(height: 12),
+          AppDropdown<LookupOption>(
+            label: 'After Colour',
+            value: provider.afterColour,
+            items: provider.colours,
+            itemLabel: (o) => o.label,
+            onChanged: provider.setAfterColour,
+            enabled: provider.selectedItem != null,
+            hint: provider.selectedItem == null ? 'Select Item First' : null,
+          ),
+        ],
       ],
     );
   }
@@ -471,76 +498,145 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
 
   // Fields and 'Add to List' for Cart system
   Widget _buildCartItemInputs(MovementFormProvider provider) {
-    final isValid = provider.selectedItem != null &&
+    final hasBeforeQty = provider.quantity != null && provider.selectedUom != null;
+    final hasAfterQty = provider.afterQuantity != null && provider.afterUom != null && provider.afterColour != null;
+    
+    bool isValid = provider.selectedItem != null &&
         provider.selectedThread != null &&
         provider.selectedLength != null &&
         provider.selectedHead != null &&
-        provider.selectedColour != null &&
-        provider.quantity != null &&
-        provider.selectedUom != null;
+        provider.selectedColour != null;
+        
+    if (provider.isPlatingLocation) {
+      isValid = isValid && (hasBeforeQty || hasAfterQty);
+    } else {
+      isValid = isValid && hasBeforeQty;
+    }
 
-    return SectionCard(
-      title: 'Movement Quantity',
-      icon: Icons.analytics_rounded,
+    return Column(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        SectionCard(
+          title: provider.isPlatingLocation ? 'Before Plating Quantity' : 'Movement Quantity',
+          icon: Icons.analytics_rounded,
           children: [
-            Expanded(
-              flex: 2,
-              child: AppTextField(
-                label: 'Quantity',
-                controller: _quantityController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
-                onChanged: provider.setQuantity,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: AppTextField(
+                    label: 'Quantity',
+                    controller: _quantityController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                    onChanged: provider.setQuantity,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: AppDropdown<String>(
+                    label: 'UoM',
+                    value: provider.selectedUom,
+                    items: AppConstants.uomOptions,
+                    itemLabel: (s) => s,
+                    onChanged: provider.setUom,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: AppDropdown<String>(
-                label: 'UoM',
-                value: provider.selectedUom,
-                items: AppConstants.uomOptions,
-                itemLabel: (s) => s,
-                onChanged: provider.setUom,
-              ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Packet',
+              controller: _packetController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+              onChanged: provider.setPacket,
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Per Packet',
+              controller: _perPacketController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: provider.setPerPacket,
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        AppTextField(
-          label: 'Packet',
-          controller: _packetController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
-          onChanged: provider.setPacket,
-        ),
-        const SizedBox(height: 16),
-        AppTextField(
-          label: 'Per Packet',
-          controller: _perPacketController,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onChanged: provider.setPerPacket,
-        ),
-        const SizedBox(height: 20),
-        OutlinedButton.icon(
-          onPressed: isValid
-              ? () {
-                  provider.addMovementItem();
-                  _quantityController.clear();
-                  FocusScope.of(context).unfocus();
-                }
-              : null,
-          icon: const Icon(Icons.add_shopping_cart_rounded),
-          label: const Text('Add to List'),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        if (provider.isPlatingLocation) ...[
+          const SizedBox(height: 16),
+          SectionCard(
+            title: 'After Plating Quantity',
+            icon: Icons.auto_awesome_rounded,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: AppTextField(
+                      label: 'After Quantity',
+                      controller: _afterQuantityController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                      onChanged: provider.setAfterQuantity,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: AppDropdown<String>(
+                      label: 'UoM',
+                      value: provider.afterUom,
+                      items: AppConstants.uomOptions,
+                      itemLabel: (s) => s,
+                      onChanged: provider.setAfterUom,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              AppTextField(
+                label: 'After Packet',
+                controller: _afterPacketController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                onChanged: provider.setAfterPacket,
+              ),
+              const SizedBox(height: 16),
+              AppTextField(
+                label: 'After Per Packet',
+                controller: _afterPerPacketController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: provider.setAfterPerPacket,
+              ),
+            ],
           ),
-        ),
+        ],
+        if (!provider.isPlatingLocation) ...[
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: isValid
+                ? () {
+                    provider.addMovementItem();
+                    _quantityController.clear();
+                    _packetController.clear();
+                    _perPacketController.clear();
+                    _afterQuantityController.clear();
+                    _afterPacketController.clear();
+                    _afterPerPacketController.clear();
+                    FocusScope.of(context).unfocus();
+                  }
+                : null,
+            icon: const Icon(Icons.add_shopping_cart_rounded),
+            label: const Text('Add to List'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -577,13 +673,22 @@ class _MovementScreenContentState extends State<_MovementScreenContent> {
               ),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Row(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
-                      child: Text('Qty: ${item.quantity} ${item.uom}', style: GoogleFonts.inter(color: Colors.blue.shade700, fontWeight: FontWeight.w600, fontSize: 12)),
-                    ),
+                    if (item.quantity != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
+                        child: Text('Before: ${item.quantity} ${item.uom}', style: GoogleFonts.inter(color: Colors.blue.shade700, fontWeight: FontWeight.w600, fontSize: 12)),
+                      ),
+                    if (item.afterQuantity != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6)),
+                        child: Text('After: ${item.afterQuantity} ${item.afterUom} (${item.afterColour?.label})', style: GoogleFonts.inter(color: Colors.green.shade700, fontWeight: FontWeight.w600, fontSize: 12)),
+                      ),
                   ],
                 ),
               ),
