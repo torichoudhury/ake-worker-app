@@ -150,15 +150,26 @@ router.get(
   '/:transaction_id/history',
   asyncHandler(async (req, res) => {
     const transactionId = req.params.transaction_id;
+
+    // For iteration 1: the "paid" amount = total_amount - due_amount (initial payment at time of sale)
+    // For iteration 2+: the "paid" amount = amount (each settlement payment)
+    // We include iteration 1 only if a partial payment was made (paid > 0)
+    // We always include iterations 2+ (they are explicit payment records)
     const result = await db.query(
       `SELECT 
-         COALESCE(tt.date, (SELECT date FROM sale_transaction WHERE transaction_id = tt.transaction_id LIMIT 1)) as date, 
-         CASE WHEN tt.iteration = 1 THEN (tt.amount - tt.due_amount) ELSE tt.amount END AS amount, 
-         tt.due_amount, 
-         tt.iteration 
+         COALESCE(tt.date::text, (SELECT MAX(st.date::text) FROM sale_transaction st WHERE st.transaction_id = tt.transaction_id)) AS date,
+         CASE 
+           WHEN tt.iteration = 1 THEN (tt.amount - tt.due_amount)
+           ELSE tt.amount 
+         END AS paid,
+         tt.due_amount AS remaining,
+         tt.iteration
        FROM transaction_treasury tt
        WHERE tt.transaction_id = $1 
-         AND CASE WHEN tt.iteration = 1 THEN (tt.amount - tt.due_amount) ELSE tt.amount END > 0
+         AND (
+           tt.iteration > 1
+           OR (tt.iteration = 1 AND (tt.amount - tt.due_amount) > 0)
+         )
        ORDER BY tt.iteration ASC`,
       [transactionId]
     );

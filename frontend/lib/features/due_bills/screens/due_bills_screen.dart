@@ -240,8 +240,8 @@ class _DueBillItemState extends State<_DueBillItem> {
                   child: Column(
                     children: _history!.map((h) {
                       final dateStr = h['date']?.toString() ?? 'N/A';
-                      final amount = h['amount']?.toString() ?? '0';
-                      final rem = h['due_amount']?.toString() ?? '0';
+                      final paid = h['paid']?.toString() ?? '0';
+                      final remaining = h['remaining']?.toString() ?? '0';
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         child: Wrap(
@@ -253,8 +253,8 @@ class _DueBillItemState extends State<_DueBillItem> {
                             Wrap(
                               spacing: 16,
                               children: [
-                                Text('- ₹$amount', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
-                                Text('Rem: ₹$rem', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey.shade800)),
+                                Text('Paid: ₹$paid', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+                                Text('Rem: ₹$remaining', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey.shade800)),
                               ],
                             ),
                           ],
