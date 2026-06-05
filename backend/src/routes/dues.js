@@ -151,10 +151,15 @@ router.get(
   asyncHandler(async (req, res) => {
     const transactionId = req.params.transaction_id;
     const result = await db.query(
-      `SELECT date, amount, due_amount, iteration 
-       FROM transaction_treasury 
-       WHERE transaction_id = $1 AND due = false AND iteration > 1
-       ORDER BY iteration ASC`,
+      `SELECT 
+         COALESCE(tt.date, (SELECT date FROM sale_transaction WHERE transaction_id = tt.transaction_id LIMIT 1)) as date, 
+         CASE WHEN tt.iteration = 1 THEN (tt.amount - tt.due_amount) ELSE tt.amount END AS amount, 
+         tt.due_amount, 
+         tt.iteration 
+       FROM transaction_treasury tt
+       WHERE tt.transaction_id = $1 
+         AND CASE WHEN tt.iteration = 1 THEN (tt.amount - tt.due_amount) ELSE tt.amount END > 0
+       ORDER BY tt.iteration ASC`,
       [transactionId]
     );
 
