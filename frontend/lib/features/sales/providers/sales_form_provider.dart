@@ -212,6 +212,12 @@ class SalesFormProvider extends ChangeNotifier {
         itemIdUom: itemIdUom,
         uom:       _selectedUom!,
         customer:  customerAlias,
+        // Pass individual fields for reliable item_master.id resolution
+        itemName:  _selectedItem?.label,
+        thread:    _selectedThread?.label,
+        length:    _selectedLength?.label,
+        head:      _selectedHead?.label,
+        colour:    _selectedColour?.label,
       );
 
       final raw = data['suggested_rate'];

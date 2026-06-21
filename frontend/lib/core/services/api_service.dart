@@ -189,12 +189,23 @@ class ApiService {
     required String itemIdUom,
     required String uom,
     String? customer,
+    // Individual item fields so backend can resolve item_master.id reliably
+    String? itemName,
+    String? thread,
+    String? length,
+    String? head,
+    String? colour,
   }) async {
     final params = [
       'item_id_uom=${Uri.encodeQueryComponent(itemIdUom)}',
       'uom=${Uri.encodeQueryComponent(uom)}',
       if (customer != null && customer.isNotEmpty)
         'customer=${Uri.encodeQueryComponent(customer)}',
+      if (itemName != null) 'name=${Uri.encodeQueryComponent(itemName)}',
+      if (thread != null)   'thread=${Uri.encodeQueryComponent(thread)}',
+      if (length != null)   'length=${Uri.encodeQueryComponent(length)}',
+      if (head != null)     'head=${Uri.encodeQueryComponent(head)}',
+      if (colour != null)   'colour=${Uri.encodeQueryComponent(colour)}',
     ];
     final response = await _get('/item-weight-uom/enquiry?${params.join('&')}');
     return response['data'] as Map<String, dynamic>;
@@ -206,13 +217,45 @@ class ApiService {
   Future<Map<String, dynamic>> fetchItemWeightEntries({
     required String itemIdUom,
     String? uom,
+    // Individual item fields so backend can resolve item_master.id reliably
+    String? itemName,
+    String? thread,
+    String? length,
+    String? head,
+    String? colour,
   }) async {
     final params = [
       'item_id_uom=${Uri.encodeQueryComponent(itemIdUom)}',
-      if (uom != null) 'uom=${Uri.encodeQueryComponent(uom)}',
+      if (uom != null)      'uom=${Uri.encodeQueryComponent(uom)}',
+      if (itemName != null) 'name=${Uri.encodeQueryComponent(itemName)}',
+      if (thread != null)   'thread=${Uri.encodeQueryComponent(thread)}',
+      if (length != null)   'length=${Uri.encodeQueryComponent(length)}',
+      if (head != null)     'head=${Uri.encodeQueryComponent(head)}',
+      if (colour != null)   'colour=${Uri.encodeQueryComponent(colour)}',
     ];
     final response = await _get('/item-weight-uom/entries?${params.join('&')}');
     return response['data'] as Map<String, dynamic>;
+  }
+
+  // ─────────────────────────────────────────────
+  // Authentication API Methods
+  // ─────────────────────────────────────────────
+
+  /// GET /api/auth/check-alias?alias=...
+  /// Checks if a worker alias exists in user_login with role=worker.
+  Future<bool> checkWorkerAlias(String alias) async {
+    final response = await _get('/auth/check-alias?alias=${Uri.encodeQueryComponent(alias)}');
+    return response['exists'] as bool? ?? false;
+  }
+
+  /// POST /api/auth/login
+  /// Verifies credentials and returns user details.
+  Future<Map<String, dynamic>> loginWorker(String alias, String pin) async {
+    final response = await _post('/auth/login', {
+      'alias': alias,
+      'pin': pin,
+    });
+    return response;
   }
 }
 

@@ -283,6 +283,12 @@ class ItemWeightUomProvider extends ChangeNotifier {
       final raw = await ApiService.instance.fetchItemWeightEntries(
         itemIdUom: itemIdUom!,
         uom:       _selectedUom,
+        // Pass individual fields so backend resolves item_master.id correctly
+        itemName:  _selectedItem?.label,
+        thread:    _selectedThread?.label,
+        length:    _selectedLength?.label,
+        head:      _selectedHead?.label,
+        colour:    _selectedColour?.label,
       );
       _entriesResult = ItemEntriesResult.fromJson(raw);
     } catch (e) {
@@ -324,6 +330,12 @@ class ItemWeightUomProvider extends ChangeNotifier {
         itemIdUom: itemIdUom!,
         uom:       _selectedUom!,
         customer:  customer,
+        // Pass individual fields so backend resolves item_master.id correctly
+        itemName:  _selectedItem?.label,
+        thread:    _selectedThread?.label,
+        length:    _selectedLength?.label,
+        head:      _selectedHead?.label,
+        colour:    _selectedColour?.label,
       );
       _enquiryResult = ItemWeightUomEnquiryResult.fromJson(raw);
     } on ApiException catch (e) {

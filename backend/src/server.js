@@ -19,6 +19,7 @@ const movementRoutes        = require('./routes/movement');
 const duesRoutes            = require('./routes/dues');
 const contactsRouter        = require('./routes/contacts');
 const itemWeightUomRouter   = require('./routes/item_weight_uom');
+const authRouter            = require('./routes/auth');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 // ─────────────────────────────────────────────
@@ -91,6 +92,7 @@ app.use('/api/movement',          movementRoutes);
 app.use('/api/dues',              duesRoutes);
 app.use('/api/contacts',          contactsRouter);
 app.use('/api/item-weight-uom',   itemWeightUomRouter);
+app.use('/api/auth',              authRouter);
 
 // ─────────────────────────────────────────────
 // Error handling (must be last)

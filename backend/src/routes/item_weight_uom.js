@@ -27,26 +27,43 @@ const UOM_QTY_MAP = {
 };
 
 // ─────────────────────────────────────────────
-// Helper: resolve item_id from item_master using item_id_uom composite key
-// "Name_Thread_Length_Head_Colour"
-// Returns the numeric item_master.id, or null if not found.
+// Helper: resolve item_master primary key (id column) using individual
+// item field params — same matching strategy as items.js (works reliably).
+// Accepts query params: name, thread, length, head, colour
+// Falls back to CONCAT match on item_id_uom if individual fields not provided.
 // ─────────────────────────────────────────────
-async function resolveItemMasterId(client, item_id_uom) {
-  // We match using CONCAT with ::text cast on numeric length column
-  const result = await client.query(
-    `SELECT id
-     FROM item_master
-     WHERE CONCAT(
-       TRIM(name), '_',
-       TRIM(thread), '_',
-       TRIM(length::text), '_',
-       TRIM(head), '_',
-       TRIM(colour)
-     ) = $1
-     LIMIT 1`,
-    [item_id_uom]
-  );
-  return result.rowCount > 0 ? result.rows[0].id : null;
+async function resolveItemId(pool, queryParams) {
+  const { name, thread, length, head, colour, item_id_uom } = queryParams;
+
+  // Prefer individual field matching (same as items.js / transactions.js)
+  if (name && thread && length && head && colour) {
+    const result = await pool.query(
+      `SELECT item_id
+       FROM item_master
+       WHERE TRIM(LOWER(name))   = TRIM(LOWER($1))
+         AND TRIM(LOWER(thread)) = TRIM(LOWER($2))
+         AND length::text        = $3::text
+         AND TRIM(LOWER(head))   = TRIM(LOWER($4))
+         AND TRIM(LOWER(colour)) = TRIM(LOWER($5))
+       LIMIT 1`,
+      [name, thread, length, head, colour]
+    );
+    return result.rowCount > 0 ? result.rows[0].item_id : null;
+  }
+
+  // Fallback: match using existing item_id column directly
+  if (item_id_uom) {
+    const result = await pool.query(
+      `SELECT item_id
+       FROM item_master
+       WHERE item_id = $1
+       LIMIT 1`,
+      [item_id_uom]
+    );
+    return result.rowCount > 0 ? result.rows[0].item_id : null;
+  }
+
+  return null;
 }
 
 // ─────────────────────────────────────────────
@@ -79,7 +96,6 @@ router.post(
       sale_rate_per_uom,
     } = req.body;
 
-    // Derive quantity_per_uom from UoM map
     const quantity_per_uom = (req.body.quantity_per_uom !== undefined)
       ? req.body.quantity_per_uom
       : (UOM_QTY_MAP[uom] ?? null);
@@ -96,14 +112,15 @@ router.post(
         [item_id_uom, date, uom, weight_per_uom, weight_uom, sale_rate_per_uom, quantity_per_uom]
       );
 
-      // 2. Recompute aggregates from log table for this item+uom
+      // 2. Recompute aggregates from log table
       const aggResult = await client.query(
         `SELECT
            AVG(weight_per_uom)    AS avg_weight,
            AVG(sale_rate_per_uom) AS avg_rate,
            MAX(quantity_per_uom)  AS qty_per_uom
          FROM item_weight_uom_log
-         WHERE item_id_uom = $1 AND LOWER(TRIM(uom)) = LOWER(TRIM($2))`,
+         WHERE item_id_uom = $1
+           AND LOWER(TRIM(uom)) = LOWER(TRIM($2))`,
         [item_id_uom, uom]
       );
 
@@ -145,16 +162,10 @@ router.post(
 
 // ─────────────────────────────────────────────
 // GET /api/item-weight-uom/enquiry
-// Query: item_id_uom, uom, customer (optional — "cash" or alias string)
+// Query: item_id_uom, uom, customer (optional — "cash" or party alias)
 //
-// Weight source: item_weight_uom_log (avg of all recorded weights)
-// Rate sources (COMBINED):
-//   1. item_weight_uom_log entries (manually recorded rates)
-//   2. sale_transaction table (actual sales rates)
-//   First rate: earliest across both sources
-//   Avg rate:   average across both sources (sliding window = all history)
-//   Customer last rate: last rate from sale_transaction for the specific party + item + uom
-//   Suggested rate: customer_last_rate (if specific customer) else avg_rate
+// Weight:   AVG from item_weight_uom_log
+// Rates:    UNION of item_weight_uom_log + sale_transaction (no JOIN — use resolved item_id)
 // ─────────────────────────────────────────────
 router.get(
   '/enquiry',
@@ -171,7 +182,10 @@ router.get(
     const { item_id_uom, uom, customer } = req.query;
     const isCash = !customer || customer.toLowerCase() === 'cash';
 
-    // ── 1. Average weight from item_weight_uom_log ──────────────────
+    // ── 1. Resolve item_master.id (avoids any JOIN type mismatch) ──────
+    const itemMasterId = await resolveItemId(db, req.query);
+
+    // ── 2. Average weight from item_weight_uom_log ─────────────────────
     const weightResult = await db.query(
       `SELECT AVG(weight_per_uom) AS avg_weight
        FROM item_weight_uom_log
@@ -183,119 +197,69 @@ router.get(
       ? parseFloat(weightResult.rows[0].avg_weight).toFixed(3)
       : null;
 
-    // ── 2. Combined rate stats from BOTH log + sale_transaction ──────
-    // First find item_master.id for the join (needed for sale_transaction)
-    // item_id_uom = "Name_Thread_Length_Head_Colour"
-    // We'll match using a CONCAT on item_master columns.
-    //
-    // Build a UNION of rates:
-    //   a) item_weight_uom_log.sale_rate_per_uom (manual entry)
-    //   b) sale_transaction.rate WHERE item matches AND uom matches (actual sales)
-    //
-    // Use a subquery so we can compute AVG/MIN across both sources.
+    // ── 3. Rate stats — combined from log + sale_transaction ───────────
+    //    Use two separate queries then merge in JS to avoid JOIN type issues.
 
-    const combinedRateResult = await db.query(
-      `WITH all_rates AS (
-         -- Source 1: manually recorded rates from log
-         SELECT sale_rate_per_uom AS rate, id AS seq
-         FROM item_weight_uom_log
-         WHERE item_id_uom = $1
-           AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
-           AND sale_rate_per_uom IS NOT NULL
-
-         UNION ALL
-
-         -- Source 2: actual sale rates from sale_transaction
-         SELECT st.rate, st.id AS seq
-         FROM sale_transaction st
-         JOIN item_master im ON st.item_id = im.id
-         WHERE CONCAT(
-             TRIM(im.name), '_',
-             TRIM(im.thread), '_',
-             TRIM(im.length::text), '_',
-             TRIM(im.head), '_',
-             TRIM(im.colour)
-           ) = $1
-           AND LOWER(TRIM(st.uom)) = LOWER(TRIM($2))
-           AND st.rate IS NOT NULL
-           AND st.rate > 0
-       )
-       SELECT
-         AVG(rate)  AS avg_rate,
-         MIN(rate)  AS min_rate
-       FROM all_rates`,
+    // 3a. Rates from item_weight_uom_log (manual entries)
+    const logRates = await db.query(
+      `SELECT sale_rate_per_uom AS rate
+       FROM item_weight_uom_log
+       WHERE item_id_uom = $1
+         AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
+         AND sale_rate_per_uom IS NOT NULL
+       ORDER BY id ASC`,
       [item_id_uom, uom]
     );
 
-    // Get the first-ever rate (oldest by seq) across both sources
-    const firstRateResult = await db.query(
-      `WITH all_rates AS (
-         SELECT sale_rate_per_uom AS rate, id AS seq
-         FROM item_weight_uom_log
-         WHERE item_id_uom = $1
+    // 3b. Rates from sale_transaction — use resolved item_master.id directly (no JOIN)
+    let stRates = { rows: [] };
+    if (itemMasterId !== null) {
+      stRates = await db.query(
+        `SELECT rate
+         FROM sale_transaction
+         WHERE item_id = $1
            AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
-           AND sale_rate_per_uom IS NOT NULL
-
-         UNION ALL
-
-         SELECT st.rate, st.id AS seq
-         FROM sale_transaction st
-         JOIN item_master im ON st.item_id = im.id
-         WHERE CONCAT(
-             TRIM(im.name), '_',
-             TRIM(im.thread), '_',
-             TRIM(im.length::text), '_',
-             TRIM(im.head), '_',
-             TRIM(im.colour)
-           ) = $1
-           AND LOWER(TRIM(st.uom)) = LOWER(TRIM($2))
-           AND st.rate IS NOT NULL
-           AND st.rate > 0
-       )
-       SELECT rate AS first_rate
-       FROM all_rates
-       ORDER BY seq ASC
-       LIMIT 1`,
-      [item_id_uom, uom]
-    );
-
-    const avgRate   = combinedRateResult.rows[0]?.avg_rate != null
-      ? parseFloat(combinedRateResult.rows[0].avg_rate).toFixed(2)
-      : null;
-    const firstRate = firstRateResult.rows[0]?.first_rate != null
-      ? parseFloat(firstRateResult.rows[0].first_rate).toFixed(2)
-      : null;
-
-    // ── 3. Customer-specific last rate from sale_transaction ─────────
-    let customerLastRate = null;
-    if (!isCash && customer) {
-      const custRateResult = await db.query(
-        `SELECT st.rate
-         FROM sale_transaction st
-         JOIN item_master im ON st.item_id = im.id
-         WHERE CONCAT(
-             TRIM(im.name), '_',
-             TRIM(im.thread), '_',
-             TRIM(im.length::text), '_',
-             TRIM(im.head), '_',
-             TRIM(im.colour)
-           ) = $1
-           AND LOWER(TRIM(st.uom)) = LOWER(TRIM($2))
-           AND LOWER(TRIM(st.party)) = LOWER(TRIM($3))
-           AND st.rate IS NOT NULL
-           AND st.rate > 0
-         ORDER BY st.id DESC
-         LIMIT 1`,
-        [item_id_uom, uom, customer]
+           AND rate IS NOT NULL
+           AND rate::numeric > 0
+         ORDER BY id ASC`,
+        [itemMasterId, uom]
       );
-      if (custRateResult.rowCount > 0) {
-        customerLastRate = parseFloat(custRateResult.rows[0].rate).toFixed(2);
+    }
+
+    // Merge all rates and compute stats in JS
+    const allRates = [
+      ...logRates.rows.map(r => parseFloat(r.rate)),
+      ...stRates.rows.map(r => parseFloat(r.rate)),
+    ].filter(r => !isNaN(r) && r > 0);
+
+    const firstRate   = allRates.length > 0
+      ? allRates[0].toFixed(2)
+      : null;
+    const avgRate     = allRates.length > 0
+      ? (allRates.reduce((sum, r) => sum + r, 0) / allRates.length).toFixed(2)
+      : null;
+
+    // ── 4. Customer-specific last rate from sale_transaction ────────────
+    let customerLastRate = null;
+    if (!isCash && customer && itemMasterId !== null) {
+      const custResult = await db.query(
+        `SELECT rate
+         FROM sale_transaction
+         WHERE item_id = $1
+           AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
+           AND LOWER(TRIM(party)) = LOWER(TRIM($3))
+           AND rate IS NOT NULL
+           AND rate::numeric > 0
+         ORDER BY id DESC
+         LIMIT 1`,
+        [itemMasterId, uom, customer]
+      );
+      if (custResult.rowCount > 0) {
+        customerLastRate = parseFloat(custResult.rows[0].rate).toFixed(2);
       }
     }
 
-    // ── 4. Suggested rate ────────────────────────────────────────────
-    //   Cash → avg across all sources (log + sale_transaction)
-    //   Specific customer → customer's last rate, fallback to avg
+    // ── 5. Suggested rate ───────────────────────────────────────────────
     const suggestedRate = isCash
       ? avgRate
       : (customerLastRate ?? avgRate);
@@ -311,6 +275,7 @@ router.get(
         avg_rate:           avgRate,
         customer_last_rate: customerLastRate,
         suggested_rate:     suggestedRate,
+        item_found:         itemMasterId !== null,
       },
     });
   })
@@ -319,8 +284,7 @@ router.get(
 // ─────────────────────────────────────────────
 // GET /api/item-weight-uom/entries
 // Query: item_id_uom, uom (optional)
-// Returns: combined log from item_weight_uom_log AND sale_transaction,
-//          most recent first, each row tagged with source
+// Returns both manual log entries and actual sale transactions.
 // ─────────────────────────────────────────────
 router.get(
   '/entries',
@@ -335,27 +299,25 @@ router.get(
 
     const { item_id_uom, uom } = req.query;
 
-    // Build optional UoM filter clause for log table
+    // Resolve item_master.id first (no JOIN required)
+    const itemMasterId = await resolveItemId(db, req.query);
+
+    // Build optional UoM filter
     const logUomClause = uom ? `AND LOWER(TRIM(uom)) = LOWER(TRIM($2))` : '';
     const logParams    = uom ? [item_id_uom, uom] : [item_id_uom];
+    const stUomClause  = uom ? `AND LOWER(TRIM(uom)) = LOWER(TRIM($2))` : '';
+    const stParams     = itemMasterId !== null
+      ? (uom ? [itemMasterId, uom] : [itemMasterId])
+      : null;
 
-    // Build optional UoM filter clause for sale_transaction
-    const stUomClause = uom ? `AND LOWER(TRIM(st.uom)) = LOWER(TRIM($2))` : '';
-    const stParams    = uom ? [item_id_uom, uom] : [item_id_uom];
-
-    // Run both queries in parallel
+    // Run queries in parallel
     const [logResult, stResult] = await Promise.all([
-      // From item_weight_uom_log (manual entries)
+      // Manual entries from item_weight_uom_log
       db.query(
         `SELECT
-           id,
-           item_id_uom,
-           date,
-           uom,
-           weight_per_uom,
-           weight_uom,
-           sale_rate_per_uom,
-           quantity_per_uom,
+           id, item_id_uom, date, uom,
+           weight_per_uom, weight_uom,
+           sale_rate_per_uom, quantity_per_uom,
            'manual_entry' AS source
          FROM item_weight_uom_log
          WHERE item_id_uom = $1 ${logUomClause}
@@ -363,40 +325,20 @@ router.get(
         logParams
       ),
 
-      // From sale_transaction (actual sales)
-      db.query(
-        `SELECT
-           st.id,
-           CONCAT(
-             TRIM(im.name), '_',
-             TRIM(im.thread), '_',
-             TRIM(im.length::text), '_',
-             TRIM(im.head), '_',
-             TRIM(im.colour)
-           ) AS item_id_uom,
-           st.date,
-           st.uom,
-           NULL::numeric AS weight_per_uom,
-           NULL AS weight_uom,
-           st.rate AS sale_rate_per_uom,
-           NULL::numeric AS quantity_per_uom,
-           st.party,
-           st.quantity,
-           st.amount,
-           'sale_transaction' AS source
-         FROM sale_transaction st
-         JOIN item_master im ON st.item_id = im.id
-         WHERE CONCAT(
-             TRIM(im.name), '_',
-             TRIM(im.thread), '_',
-             TRIM(im.length::text), '_',
-             TRIM(im.head), '_',
-             TRIM(im.colour)
-           ) = $1
-           ${stUomClause}
-         ORDER BY st.id DESC`,
-        stParams
-      ),
+      // Actual sales from sale_transaction — direct lookup, no JOIN
+      stParams !== null
+        ? db.query(
+            `SELECT
+               id, date, uom,
+               rate AS sale_rate_per_uom,
+               party, quantity, amount,
+               'sale_transaction' AS source
+             FROM sale_transaction
+             WHERE item_id = $1 ${stUomClause}
+             ORDER BY id DESC`,
+            stParams
+          )
+        : Promise.resolve({ rows: [] }),
     ]);
 
     res.json({

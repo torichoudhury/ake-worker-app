@@ -147,7 +147,7 @@ router.get(
            st.uom, st.rate, st.mode, st.amount, st.reciept, st.location,
            im.name AS item_name, im.thread, im.length, im.head, im.colour
          FROM sale_transaction st
-         LEFT JOIN item_master im ON st.item_id = im.id
+         LEFT JOIN item_master im ON st.item_id = im.item_id
          ORDER BY st.id DESC
          LIMIT $1 OFFSET $2`,
         [limit, offset]
@@ -181,7 +181,7 @@ router.get(
       `SELECT
          st.*, im.name AS item_name, im.thread, im.length, im.head, im.colour
        FROM sale_transaction st
-       LEFT JOIN item_master im ON st.item_id = im.id
+       LEFT JOIN item_master im ON st.item_id = im.item_id
        WHERE st.id = $1`,
       [req.params.id]
     );
