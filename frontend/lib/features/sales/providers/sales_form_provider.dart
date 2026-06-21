@@ -183,10 +183,15 @@ class SalesFormProvider extends ChangeNotifier {
 
   /// Called whenever item selection or UoM changes.
   /// Builds the composite item_id_uom and calls the enquiry API.
+  /// Silently no-ops on any network/404 error — suggested rate is advisory only.
   Future<void> _tryFetchSuggestedRate() async {
-    if (_selectedItem == null || _selectedThread == null ||
-        _selectedLength == null || _selectedHead == null ||
-        _selectedColour == null || _selectedUom == null) {
+    // All five item fields + UoM must be selected
+    if (_selectedItem == null   || _selectedItem!.label.isEmpty   ||
+        _selectedThread == null || _selectedThread!.label.isEmpty ||
+        _selectedLength == null || _selectedLength!.label.isEmpty ||
+        _selectedHead == null   || _selectedHead!.label.isEmpty   ||
+        _selectedColour == null || _selectedColour!.label.isEmpty ||
+        _selectedUom == null    || _selectedUom!.isEmpty) {
       _suggestedRate = null;
       notifyListeners();
       return;
@@ -195,7 +200,8 @@ class SalesFormProvider extends ChangeNotifier {
     final itemIdUom = '${_selectedItem!.label}_${_selectedThread!.label}_'
         '${_selectedLength!.label}_${_selectedHead!.label}_${_selectedColour!.label}';
 
-    // Use the selected party alias for customer-specific rate (cash if not selected)
+    // Only pass customer when a specific party is actually selected
+    // (null → backend treats as Cash → returns avg rate)
     final customerAlias = _selectedParty?.alias;
 
     _isFetchingRate = true;
@@ -207,6 +213,7 @@ class SalesFormProvider extends ChangeNotifier {
         uom:       _selectedUom!,
         customer:  customerAlias,
       );
+
       final raw = data['suggested_rate'];
       _suggestedRate = raw != null ? double.tryParse(raw.toString()) : null;
     } catch (e) {
