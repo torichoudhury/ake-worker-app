@@ -36,7 +36,6 @@ router.get(
     const result = await db.query(
       `SELECT uid FROM user_login
        WHERE LOWER(TRIM(uid)) = LOWER(TRIM($1))
-         AND LOWER(TRIM(role)) = 'worker'
        LIMIT 1`,
       [alias]
     );
@@ -67,18 +66,26 @@ router.post(
     const { alias, pin } = req.body;
     const lowerAlias = alias.toLowerCase().trim();
 
-    // 1. Fetch user by alias and verify role is 'worker'
+    // 1. Fetch user by alias generally (checking existence)
     const result = await db.query(
-      `SELECT uid, role, pin FROM user_login
+      `SELECT uid, role FROM user_login
        WHERE LOWER(TRIM(uid)) = $1
-         AND LOWER(TRIM(role)) = 'worker'
        LIMIT 1`,
       [lowerAlias]
     );
 
-    // If user is not found or not a worker, it counts as a failed login attempt for that alias name
     const user = result.rows[0];
-    const isPinMatch = user && user.pin === pin;
+
+    // 2. Fetch the master PIN next to the user with uid = 'worker'
+    const pinResult = await db.query(
+      `SELECT pin FROM user_login
+       WHERE uid = 'worker'
+       LIMIT 1`
+    );
+    const workerPin = pinResult.rows[0] ? pinResult.rows[0].pin : null;
+
+    // 3. Match the entered PIN with the worker's PIN if the alias exists
+    const isPinMatch = user && workerPin !== null && workerPin === pin;
 
     if (!isPinMatch) {
       const currentFailures = (failedAttempts.get(lowerAlias) || 0) + 1;
@@ -100,7 +107,7 @@ router.post(
 
       return res.status(401).json({
         success: false,
-        error: isPinMatch ? 'Unauthorized worker role' : 'Incorrect PIN',
+        error: 'Incorrect PIN',
         logged,
         message: logged
           ? 'Failed attempts limit reached. Unauthorized access logged.'
