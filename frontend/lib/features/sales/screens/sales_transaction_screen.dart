@@ -456,13 +456,92 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
             ],
           ),
           const SizedBox(height: 16),
-          AppTextField(
-            label: 'Rate',
-            controller: _rateController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            prefixIcon: const Icon(Icons.currency_rupee_rounded, size: 20),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
-            validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+          // Rate field + suggested rate chip
+          Consumer<SalesFormProvider>(
+            builder: (context, prov, _) {
+              // Auto-fill rate when suggestion arrives and controller is empty
+              if (prov.suggestedRate != null &&
+                  _rateController.text.isEmpty &&
+                  !prov.isFetchingRate) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_rateController.text.isEmpty) {
+                    _rateController.text =
+                        prov.suggestedRate!.toStringAsFixed(2);
+                  }
+                });
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppTextField(
+                    label: 'Rate',
+                    controller: _rateController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    prefixIcon:
+                        const Icon(Icons.currency_rupee_rounded, size: 20),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d*\.?\d*'))
+                    ],
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  // Suggested rate badge
+                  if (prov.isFetchingRate)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                              width: 12, height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2)),
+                          const SizedBox(width: 6),
+                          Text('Fetching suggested rate…',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, color: Colors.grey.shade500)),
+                        ],
+                      ),
+                    )
+                  else if (prov.suggestedRate != null)
+                    GestureDetector(
+                      onTap: () {
+                        _rateController.text =
+                            prov.suggestedRate!.toStringAsFixed(2);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: const Color(0xFF1565C0).withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.auto_awesome_rounded,
+                                  size: 13, color: Color(0xFF1565C0)),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Suggested: ₹${prov.suggestedRate!.toStringAsFixed(2)}  •  Tap to use',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF1565C0),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
           SizedBox(

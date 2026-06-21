@@ -56,3 +56,24 @@ CREATE TABLE movement_logs (
   per_packet real, 
   uom_packet text
 );
+
+-- ─────────────────────────────────────────────
+-- ITEM WEIGHT UOM LOG
+-- Stores individual dated entries for weight and sale rate per UoM.
+-- Averages are computed from this table and written back to item_weight_uom.
+-- ─────────────────────────────────────────────
+CREATE TABLE public.item_weight_uom_log (
+  id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  item_id_uom       text NOT NULL,          -- "Name_Thread_Length_Head_Colour"
+  date              text NOT NULL,          -- entry date (yyyy-MM-dd)
+  uom               text NOT NULL,          -- UoM from LoV
+  weight_per_uom    numeric(15, 3) NULL,    -- weight in KG, 3 decimal places
+  weight_uom        text NULL,              -- always 'KG'
+  sale_rate_per_uom numeric(12, 3) NULL,    -- sale rate for this UoM on this date
+  quantity_per_uom  numeric(12, 3) NULL     -- quantity conversion (auto from UoM map)
+) TABLESPACE pg_default;
+
+-- RLS: service role bypass
+CREATE POLICY "service_role_all" ON item_weight_uom_log FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_role_all" ON item_weight_uom     FOR ALL TO service_role USING (true) WITH CHECK (true);
+

@@ -172,4 +172,47 @@ class ApiService {
     final response = await _post('/contacts', payload);
     return response['data'] as Map<String, dynamic>;
   }
+
+  // ─────────────────────────────────────────────
+  // Item Weight / UoM API
+  // ─────────────────────────────────────────────
+
+  /// POST /api/item-weight-uom/entry
+  /// Saves a new dated weight + rate entry for an item+uom.
+  Future<void> saveItemWeightEntry(Map<String, dynamic> payload) async {
+    await _post('/item-weight-uom/entry', payload);
+  }
+
+  /// GET /api/item-weight-uom/enquiry
+  /// Returns avg weight + suggested sale rates for a given item+uom+customer.
+  Future<Map<String, dynamic>> fetchItemEnquiry({
+    required String itemIdUom,
+    required String uom,
+    String? customer,
+  }) async {
+    final params = [
+      'item_id_uom=${Uri.encodeQueryComponent(itemIdUom)}',
+      'uom=${Uri.encodeQueryComponent(uom)}',
+      if (customer != null && customer.isNotEmpty)
+        'customer=${Uri.encodeQueryComponent(customer)}',
+    ];
+    final response = await _get('/item-weight-uom/enquiry?${params.join('&')}');
+    return response['data'] as Map<String, dynamic>;
+  }
+
+  /// GET /api/item-weight-uom/entries
+  /// Returns combined entries from item_weight_uom_log AND sale_transaction.
+  /// Response shape: { manual_entries: [...], sale_transactions: [...] }
+  Future<Map<String, dynamic>> fetchItemWeightEntries({
+    required String itemIdUom,
+    String? uom,
+  }) async {
+    final params = [
+      'item_id_uom=${Uri.encodeQueryComponent(itemIdUom)}',
+      if (uom != null) 'uom=${Uri.encodeQueryComponent(uom)}',
+    ];
+    final response = await _get('/item-weight-uom/entries?${params.join('&')}');
+    return response['data'] as Map<String, dynamic>;
+  }
 }
+

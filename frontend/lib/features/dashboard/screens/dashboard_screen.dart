@@ -7,6 +7,7 @@ import '../../sales/screens/sales_transaction_screen.dart';
 import '../../movement/screens/movement_screen.dart';
 import '../../due_bills/screens/due_bills_screen.dart';
 import '../../contacts/screens/contact_form_screen.dart';
+import '../../item_weight_uom/screens/item_weight_uom_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -111,6 +112,23 @@ class DashboardScreen extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const ContactFormScreen()),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                _NavCard(
+                  title: 'Item Weight & Rates',
+                  icon: Icons.monitor_weight_rounded,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF37474F), Color(0xFF546E7A)],
+                  ),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const ItemWeightUomScreen()),
                   ),
                 ),
 

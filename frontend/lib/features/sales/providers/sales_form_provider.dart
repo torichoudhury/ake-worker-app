@@ -46,6 +46,10 @@ class SalesFormProvider extends ChangeNotifier {
   String? _selectedUom;
   String? _selectedMode;
 
+  // Suggested rate fetched from item_weight_uom enquiry
+  double? _suggestedRate;
+  bool _isFetchingRate = false;
+
   // ─────────────────────────────────────────────
   // Cart & Transaction State
   // ─────────────────────────────────────────────
@@ -63,13 +67,16 @@ class SalesFormProvider extends ChangeNotifier {
   String get selectedDate => _selectedDate;
   int? get lastTransactionId => _lastTransactionId;
 
-  LookupOption? get selectedItem => _selectedItem;
+  LookupOption? get selectedItem   => _selectedItem;
   LookupOption? get selectedThread => _selectedThread;
   LookupOption? get selectedLength => _selectedLength;
-  LookupOption? get selectedHead => _selectedHead;
+  LookupOption? get selectedHead   => _selectedHead;
   LookupOption? get selectedColour => _selectedColour;
-  String? get selectedUom => _selectedUom;
+  String? get selectedUom  => _selectedUom;
   String? get selectedMode => _selectedMode;
+
+  double? get suggestedRate    => _suggestedRate;
+  bool    get isFetchingRate   => _isFetchingRate;
 
   List<CartItem> get cart => _cart;
   double get gst => _gst;
@@ -87,15 +94,21 @@ class SalesFormProvider extends ChangeNotifier {
 
   // Setters
   void setLocation(String? v) { _selectedLocation = v; notifyListeners(); }
-  void setParty(CustomerOption? v) { _selectedParty = v; notifyListeners(); }
+  void setParty(CustomerOption? v) {
+    _selectedParty = v;
+    _suggestedRate = null;
+    notifyListeners();
+    _tryFetchSuggestedRate();
+  }
   void setDate(String v) { _selectedDate = v; notifyListeners(); }
 
   void setItem(LookupOption? v) {
-    _selectedItem = v;
+    _selectedItem   = v;
     _selectedThread = null;
     _selectedLength = null;
-    _selectedHead = null;
+    _selectedHead   = null;
     _selectedColour = null;
+    _suggestedRate  = null;
     notifyListeners();
 
     _fetchFilteredOptions();
@@ -146,15 +159,63 @@ class SalesFormProvider extends ChangeNotifier {
   }
   
   void setColour(LookupOption? v) { 
-    _selectedColour = v; 
-    notifyListeners(); 
+    _selectedColour = v;
+    _suggestedRate = null;
+    notifyListeners();
+    _tryFetchSuggestedRate();
   }
-  void setUom(String? v) { _selectedUom = v; notifyListeners(); }
+  void setUom(String? v) {
+    _selectedUom = v;
+    _suggestedRate = null;
+    notifyListeners();
+    _tryFetchSuggestedRate();
+  }
   void setMode(String? v) { _selectedMode = v; notifyListeners(); }
 
   void setGst(String text) {
     _gst = double.tryParse(text) ?? 0.0;
     notifyListeners();
+  }
+
+  // ─────────────────────────────────────────────
+  // Suggested Rate (from item_weight_uom)
+  // ─────────────────────────────────────────────
+
+  /// Called whenever item selection or UoM changes.
+  /// Builds the composite item_id_uom and calls the enquiry API.
+  Future<void> _tryFetchSuggestedRate() async {
+    if (_selectedItem == null || _selectedThread == null ||
+        _selectedLength == null || _selectedHead == null ||
+        _selectedColour == null || _selectedUom == null) {
+      _suggestedRate = null;
+      notifyListeners();
+      return;
+    }
+
+    final itemIdUom = '${_selectedItem!.label}_${_selectedThread!.label}_'
+        '${_selectedLength!.label}_${_selectedHead!.label}_${_selectedColour!.label}';
+
+    // Use the selected party alias for customer-specific rate (cash if not selected)
+    final customerAlias = _selectedParty?.alias;
+
+    _isFetchingRate = true;
+    notifyListeners();
+
+    try {
+      final data = await ApiService.instance.fetchItemEnquiry(
+        itemIdUom: itemIdUom,
+        uom:       _selectedUom!,
+        customer:  customerAlias,
+      );
+      final raw = data['suggested_rate'];
+      _suggestedRate = raw != null ? double.tryParse(raw.toString()) : null;
+    } catch (e) {
+      debugPrint('Rate suggestion fetch failed: $e');
+      _suggestedRate = null;
+    } finally {
+      _isFetchingRate = false;
+      notifyListeners();
+    }
   }
 
   void setCartage(String text) {
@@ -288,14 +349,15 @@ class SalesFormProvider extends ChangeNotifier {
 
   void resetForm() {
     _selectedLocation = null;
-    _selectedParty = null;
-    _selectedItem = null;
-    _selectedThread = null;
-    _selectedLength = null;
-    _selectedHead = null;
-    _selectedColour = null;
-    _selectedUom = null;
-    _selectedMode = null;
+    _selectedParty    = null;
+    _selectedItem     = null;
+    _selectedThread   = null;
+    _selectedLength   = null;
+    _selectedHead     = null;
+    _selectedColour   = null;
+    _selectedUom      = null;
+    _selectedMode     = null;
+    _suggestedRate    = null;
     _cart.clear();
     _gst = 0.0;
     _cartage = 0.0;

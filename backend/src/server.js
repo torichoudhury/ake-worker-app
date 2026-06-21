@@ -12,12 +12,13 @@ const cors    = require('cors');
 const helmet  = require('helmet');
 const morgan  = require('morgan');
 
-const itemsRouter        = require('./routes/items');
-const transactionsRouter = require('./routes/transactions');
-const customersRouter    = require('./routes/customers');
-const movementRoutes     = require('./routes/movement');
-const duesRoutes         = require('./routes/dues');
-const contactsRouter     = require('./routes/contacts');
+const itemsRouter           = require('./routes/items');
+const transactionsRouter    = require('./routes/transactions');
+const customersRouter       = require('./routes/customers');
+const movementRoutes        = require('./routes/movement');
+const duesRoutes            = require('./routes/dues');
+const contactsRouter        = require('./routes/contacts');
+const itemWeightUomRouter   = require('./routes/item_weight_uom');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 // ─────────────────────────────────────────────
@@ -83,12 +84,13 @@ app.get('/health', (req, res) => {
 // API Routes
 // ─────────────────────────────────────────────
 
-app.use('/api/items',        itemsRouter);
-app.use('/api/transactions', transactionsRouter);
-app.use('/api/customers',    customersRouter);
-app.use('/api/movement',     movementRoutes);
-app.use('/api/dues',         duesRoutes);
-app.use('/api/contacts',     contactsRouter);
+app.use('/api/items',             itemsRouter);
+app.use('/api/transactions',      transactionsRouter);
+app.use('/api/customers',         customersRouter);
+app.use('/api/movement',          movementRoutes);
+app.use('/api/dues',              duesRoutes);
+app.use('/api/contacts',          contactsRouter);
+app.use('/api/item-weight-uom',   itemWeightUomRouter);
 
 // ─────────────────────────────────────────────
 // Error handling (must be last)
