@@ -47,7 +47,12 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g., mobile apps, curl, Postman)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.startsWith('http://localhost') ||
+        origin.startsWith('http://127.0.0.1')
+      ) {
         callback(null, true);
       } else {
         callback(new Error(`CORS blocked for origin: ${origin}`));
