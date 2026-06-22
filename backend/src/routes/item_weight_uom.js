@@ -26,6 +26,52 @@ const UOM_QTY_MAP = {
   'Box':   null,
 };
 
+// Helper to get factor for Pcs, %, Gross
+function getFactor(uom) {
+  if (!uom) return null;
+  const u = uom.trim().toLowerCase();
+  if (u === 'pcs') return 1;
+  if (u === '%') return 100;
+  if (u === 'gross') return 144;
+  return null;
+}
+
+// Helper to convert rate between UoMs
+function convertRate(rate, fromUom, toUom, avgPieceWeight) {
+  if (!fromUom || !toUom) return null;
+  const fromClean = fromUom.trim().toLowerCase();
+  const toClean = toUom.trim().toLowerCase();
+
+  if (fromClean === toClean) {
+    return rate;
+  }
+
+  // Bag and Box cannot be converted to anything else
+  if (fromClean === 'bag' || fromClean === 'box' || toClean === 'bag' || toClean === 'box') {
+    return null;
+  }
+
+  const fromFactor = getFactor(fromClean);
+  const toFactor = getFactor(toClean);
+
+  // Scenario 1: Both are piece-based UoMs (Pcs, %, Gross)
+  if (fromFactor !== null && toFactor !== null) {
+    return rate * (toFactor / fromFactor);
+  }
+
+  // Scenario 2: One is KG, the other is piece-based, and we have avgPieceWeight
+  if (avgPieceWeight !== null && avgPieceWeight > 0) {
+    if (fromClean === 'kg' && toFactor !== null) {
+      return rate * avgPieceWeight * toFactor;
+    }
+    if (fromFactor !== null && toClean === 'kg') {
+      return (rate / fromFactor) / avgPieceWeight;
+    }
+  }
+
+  return null;
+}
+
 // ─────────────────────────────────────────────
 // Helper: resolve item_master primary key (id column) using individual
 // item field params — same matching strategy as items.js (works reliably).
@@ -185,52 +231,100 @@ router.get(
     // ── 1. Resolve item_master.id (avoids any JOIN type mismatch) ──────
     const itemMasterId = await resolveItemId(db, req.query);
 
-    // ── 2. Average weight from item_weight_uom_log ─────────────────────
-    const weightResult = await db.query(
-      `SELECT AVG(weight_per_uom) AS avg_weight
+    // ── 2. Average weight calculations with conversions ────────────────
+    const weightLogs = await db.query(
+      `SELECT weight_per_uom, uom
        FROM item_weight_uom_log
        WHERE item_id_uom = $1
-         AND LOWER(TRIM(uom)) = LOWER(TRIM($2))`,
-      [item_id_uom, uom]
+         AND weight_per_uom IS NOT NULL
+         AND weight_per_uom::numeric > 0`,
+      [item_id_uom]
     );
-    const avgWeight = weightResult.rows[0]?.avg_weight != null
-      ? parseFloat(weightResult.rows[0].avg_weight).toFixed(3)
-      : null;
 
-    // ── 3. Rate stats — combined from log + sale_transaction ───────────
-    //    Use two separate queries then merge in JS to avoid JOIN type issues.
+    let sumPieceWeight = 0;
+    let countPieceWeight = 0;
+    for (const row of weightLogs.rows) {
+      const factor = getFactor(row.uom);
+      if (factor !== null) {
+        sumPieceWeight += parseFloat(row.weight_per_uom) / factor;
+        countPieceWeight++;
+      }
+    }
+    const avgPieceWeight = countPieceWeight > 0 ? (sumPieceWeight / countPieceWeight) : null;
 
-    // 3a. Rates from item_weight_uom_log (manual entries)
+    let avgWeight = null;
+    const targetUomLower = uom.trim().toLowerCase();
+
+    if (targetUomLower === 'kg') {
+      avgWeight = avgPieceWeight !== null ? (1.0).toFixed(3) : null;
+    } else if (targetUomLower === 'bag' || targetUomLower === 'box') {
+      const specificWeightRes = await db.query(
+        `SELECT AVG(weight_per_uom) AS avg_weight
+         FROM item_weight_uom_log
+         WHERE item_id_uom = $1
+           AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
+           AND weight_per_uom IS NOT NULL`,
+        [item_id_uom, uom]
+      );
+      avgWeight = specificWeightRes.rows[0]?.avg_weight != null
+        ? parseFloat(specificWeightRes.rows[0].avg_weight).toFixed(3)
+        : null;
+    } else {
+      if (avgPieceWeight !== null) {
+        const factor = getFactor(uom);
+        avgWeight = (avgPieceWeight * factor).toFixed(3);
+      } else {
+        const specificWeightRes = await db.query(
+          `SELECT AVG(weight_per_uom) AS avg_weight
+           FROM item_weight_uom_log
+           WHERE item_id_uom = $1
+             AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
+             AND weight_per_uom IS NOT NULL`,
+          [item_id_uom, uom]
+        );
+        avgWeight = specificWeightRes.rows[0]?.avg_weight != null
+          ? parseFloat(specificWeightRes.rows[0].avg_weight).toFixed(3)
+          : null;
+      }
+    }
+
+    // ── 3. Rate stats — combined from log + sale_transaction with conversions ──
     const logRates = await db.query(
-      `SELECT sale_rate_per_uom AS rate
+      `SELECT sale_rate_per_uom AS rate, uom
        FROM item_weight_uom_log
        WHERE item_id_uom = $1
-         AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
          AND sale_rate_per_uom IS NOT NULL
+         AND sale_rate_per_uom::numeric > 0
        ORDER BY id ASC`,
-      [item_id_uom, uom]
+      [item_id_uom]
     );
 
-    // 3b. Rates from sale_transaction — use resolved item_master.id directly (no JOIN)
     let stRates = { rows: [] };
     if (itemMasterId !== null) {
       stRates = await db.query(
-        `SELECT rate
+        `SELECT rate, uom
          FROM sale_transaction
          WHERE item_id = $1
-           AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
            AND rate IS NOT NULL
            AND rate::numeric > 0
          ORDER BY id ASC`,
-        [itemMasterId, uom]
+        [itemMasterId]
       );
     }
 
-    // Merge all rates and compute stats in JS
-    const allRates = [
-      ...logRates.rows.map(r => parseFloat(r.rate)),
-      ...stRates.rows.map(r => parseFloat(r.rate)),
-    ].filter(r => !isNaN(r) && r > 0);
+    const allRates = [];
+    for (const r of logRates.rows) {
+      const converted = convertRate(parseFloat(r.rate), r.uom, uom, avgPieceWeight);
+      if (converted !== null) {
+        allRates.push(converted);
+      }
+    }
+    for (const r of stRates.rows) {
+      const converted = convertRate(parseFloat(r.rate), r.uom, uom, avgPieceWeight);
+      if (converted !== null) {
+        allRates.push(converted);
+      }
+    }
 
     const lastRate    = allRates.length > 0
       ? allRates[allRates.length - 1].toFixed(2)
@@ -239,23 +333,25 @@ router.get(
       ? (allRates.reduce((sum, r) => sum + r, 0) / allRates.length).toFixed(2)
       : null;
 
-    // ── 4. Customer-specific last rate from sale_transaction ────────────
+    // ── 4. Customer-specific last rate from sale_transaction with conversions ──
     let customerLastRate = null;
     if (!isCash && customer && itemMasterId !== null) {
       const custResult = await db.query(
-        `SELECT rate
+        `SELECT rate, uom
          FROM sale_transaction
          WHERE item_id = $1
-           AND LOWER(TRIM(uom)) = LOWER(TRIM($2))
-           AND LOWER(TRIM(party)) = LOWER(TRIM($3))
+           AND LOWER(TRIM(party)) = LOWER(TRIM($2))
            AND rate IS NOT NULL
            AND rate::numeric > 0
-         ORDER BY id DESC
-         LIMIT 1`,
-        [itemMasterId, uom, customer]
+         ORDER BY id DESC`,
+        [itemMasterId, customer]
       );
-      if (custResult.rowCount > 0) {
-        customerLastRate = parseFloat(custResult.rows[0].rate).toFixed(2);
+      for (const r of custResult.rows) {
+        const converted = convertRate(parseFloat(r.rate), r.uom, uom, avgPieceWeight);
+        if (converted !== null) {
+          customerLastRate = converted.toFixed(2);
+          break;
+        }
       }
     }
 
