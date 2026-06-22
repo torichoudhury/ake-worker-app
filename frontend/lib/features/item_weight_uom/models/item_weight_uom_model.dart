@@ -117,7 +117,7 @@ class ItemWeightUomEnquiryResult {
   final String uom;
   final double? weightPerUom;     // avg weight in KG from log
   final String weightUom;
-  final double? firstRate;        // first-ever rate (log + sales combined)
+  final double? lastRate;         // last/most recent rate (log + sales combined)
   final double? avgRate;          // avg across log + sales (sliding window)
   final double? customerLastRate; // last rate from sale_transaction for specific customer
   final double? suggestedRate;    // = customerLastRate ?? avgRate
@@ -127,7 +127,7 @@ class ItemWeightUomEnquiryResult {
     required this.uom,
     this.weightPerUom,
     this.weightUom = 'KG',
-    this.firstRate,
+    this.lastRate,
     this.avgRate,
     this.customerLastRate,
     this.suggestedRate,
@@ -140,7 +140,7 @@ class ItemWeightUomEnquiryResult {
       uom:              json['uom'] as String? ?? '',
       weightPerUom:     _p(json['weight_per_uom']),
       weightUom:        json['weight_uom'] as String? ?? 'KG',
-      firstRate:        _p(json['first_rate']),
+      lastRate:         _p(json['last_rate']),
       avgRate:          _p(json['avg_rate']),
       customerLastRate: _p(json['customer_last_rate']),
       suggestedRate:    _p(json['suggested_rate']),

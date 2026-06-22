@@ -232,8 +232,8 @@ router.get(
       ...stRates.rows.map(r => parseFloat(r.rate)),
     ].filter(r => !isNaN(r) && r > 0);
 
-    const firstRate   = allRates.length > 0
-      ? allRates[0].toFixed(2)
+    const lastRate    = allRates.length > 0
+      ? allRates[allRates.length - 1].toFixed(2)
       : null;
     const avgRate     = allRates.length > 0
       ? (allRates.reduce((sum, r) => sum + r, 0) / allRates.length).toFixed(2)
@@ -261,8 +261,8 @@ router.get(
 
     // ── 5. Suggested rate ───────────────────────────────────────────────
     const suggestedRate = isCash
-      ? avgRate
-      : (customerLastRate ?? avgRate);
+      ? lastRate
+      : (customerLastRate ?? lastRate);
 
     res.json({
       success: true,
@@ -271,7 +271,7 @@ router.get(
         uom,
         weight_per_uom:     avgWeight,
         weight_uom:         'KG',
-        first_rate:         firstRate,
+        last_rate:          lastRate,
         avg_rate:           avgRate,
         customer_last_rate: customerLastRate,
         suggested_rate:     suggestedRate,

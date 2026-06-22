@@ -48,6 +48,9 @@ class SalesFormProvider extends ChangeNotifier {
 
   // Suggested rate fetched from item_weight_uom enquiry
   double? _suggestedRate;
+  double? _avgRate;
+  double? _lastRate;
+  double? _customerLastRate;
   bool _isFetchingRate = false;
 
   // ─────────────────────────────────────────────
@@ -76,6 +79,9 @@ class SalesFormProvider extends ChangeNotifier {
   String? get selectedMode => _selectedMode;
 
   double? get suggestedRate    => _suggestedRate;
+  double? get avgRate          => _avgRate;
+  double? get lastRate         => _lastRate;
+  double? get customerLastRate => _customerLastRate;
   bool    get isFetchingRate   => _isFetchingRate;
 
   List<CartItem> get cart => _cart;
@@ -97,6 +103,9 @@ class SalesFormProvider extends ChangeNotifier {
   void setParty(CustomerOption? v) {
     _selectedParty = v;
     _suggestedRate = null;
+    _avgRate = null;
+    _lastRate = null;
+    _customerLastRate = null;
     notifyListeners();
     _tryFetchSuggestedRate();
   }
@@ -109,6 +118,9 @@ class SalesFormProvider extends ChangeNotifier {
     _selectedHead   = null;
     _selectedColour = null;
     _suggestedRate  = null;
+    _avgRate        = null;
+    _lastRate       = null;
+    _customerLastRate = null;
     notifyListeners();
 
     _fetchFilteredOptions();
@@ -161,12 +173,18 @@ class SalesFormProvider extends ChangeNotifier {
   void setColour(LookupOption? v) { 
     _selectedColour = v;
     _suggestedRate = null;
+    _avgRate        = null;
+    _lastRate       = null;
+    _customerLastRate = null;
     notifyListeners();
     _tryFetchSuggestedRate();
   }
   void setUom(String? v) {
     _selectedUom = v;
     _suggestedRate = null;
+    _avgRate        = null;
+    _lastRate       = null;
+    _customerLastRate = null;
     notifyListeners();
     _tryFetchSuggestedRate();
   }
@@ -193,6 +211,9 @@ class SalesFormProvider extends ChangeNotifier {
         _selectedColour == null || _selectedColour!.label.isEmpty ||
         _selectedUom == null    || _selectedUom!.isEmpty) {
       _suggestedRate = null;
+      _avgRate = null;
+      _lastRate = null;
+      _customerLastRate = null;
       notifyListeners();
       return;
     }
@@ -220,11 +241,21 @@ class SalesFormProvider extends ChangeNotifier {
         colour:    _selectedColour?.label,
       );
 
-      final raw = data['suggested_rate'];
-      _suggestedRate = raw != null ? double.tryParse(raw.toString()) : null;
+      final rawSuggested = data['suggested_rate'];
+      final rawAvg = data['avg_rate'];
+      final rawLast = data['last_rate'];
+      final rawCustLast = data['customer_last_rate'];
+
+      _suggestedRate = rawSuggested != null ? double.tryParse(rawSuggested.toString()) : null;
+      _avgRate = rawAvg != null ? double.tryParse(rawAvg.toString()) : null;
+      _lastRate = rawLast != null ? double.tryParse(rawLast.toString()) : null;
+      _customerLastRate = rawCustLast != null ? double.tryParse(rawCustLast.toString()) : null;
     } catch (e) {
       debugPrint('Rate suggestion fetch failed: $e');
       _suggestedRate = null;
+      _avgRate = null;
+      _lastRate = null;
+      _customerLastRate = null;
     } finally {
       _isFetchingRate = false;
       notifyListeners();
@@ -371,6 +402,9 @@ class SalesFormProvider extends ChangeNotifier {
     _selectedUom      = null;
     _selectedMode     = null;
     _suggestedRate    = null;
+    _avgRate          = null;
+    _lastRate         = null;
+    _customerLastRate = null;
     _cart.clear();
     _gst = 0.0;
     _cartage = 0.0;

@@ -504,40 +504,65 @@ class _SalesTransactionViewState extends State<_SalesTransactionView> {
                       ),
                     )
                   else if (prov.suggestedRate != null)
-                    GestureDetector(
-                      onTap: () {
-                        _rateController.text =
-                            prov.suggestedRate!.toStringAsFixed(2);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE3F2FD),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: const Color(0xFF1565C0).withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.auto_awesome_rounded,
-                                  size: 13, color: Color(0xFF1565C0)),
-                              const SizedBox(width: 5),
-                              Text(
-                                'Suggested: ₹${prov.suggestedRate!.toStringAsFixed(2)}  •  Tap to use',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF1565C0),
-                                ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            _rateController.text =
+                                prov.suggestedRate!.toStringAsFixed(2);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE3F2FD),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: const Color(0xFF1565C0).withOpacity(0.3)),
                               ),
-                            ],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.auto_awesome_rounded,
+                                      size: 13, color: Color(0xFF1565C0)),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Suggested: ₹${prov.suggestedRate!.toStringAsFixed(2)}  •  Tap to use',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF1565C0),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        if (prov.avgRate != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6, left: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.info_outline_rounded,
+                                    size: 14, color: Colors.grey.shade600),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Average Price: ₹${prov.avgRate!.toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
                 ],
               );

@@ -667,10 +667,10 @@ class _EnquiryResultCard extends StatelessWidget {
 
                 // Rate rows
                 _ResultRow(
-                  icon: Icons.first_page_rounded,
-                  label: 'First Sale Rate',
-                  value: result.firstRate != null
-                      ? '₹ ${fmtRate.format(result.firstRate!)}'
+                  icon: Icons.last_page_rounded,
+                  label: 'Last Sale Rate',
+                  value: result.lastRate != null
+                      ? '₹ ${fmtRate.format(result.lastRate!)}'
                       : '— No data',
                   highlight: false,
                 ),
